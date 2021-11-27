@@ -48,9 +48,15 @@ async def cmd_start(message: types.Message):
     keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True).add(
         KeyboardButton('Отправить свою локацию 🗺️', request_location=True)
     )
-    await message.answer("Привет! Я помогу вам арендовать личную ячейку для хранения вещей.\n"
-                         "Пришлите мне, пожалуйста, свою геолокацию, чтобы вы выбрали ближайший склад!",
-                         reply_markup=keyboard)
+    if message.text == 'В начало':
+        await message.answer("Рады видеть Вас снова! Начнем! \n"
+                             "Пришлите мне, пожалуйста, повторно свою геолокацию, или выберете из списка! "
+                             "И мы снова выберем ближайший склад",
+                             reply_markup=keyboard)
+    else:
+        await message.answer("Привет! Я помогу вам арендовать личную ячейку для хранения вещей.\n"
+                             "Пришлите мне, пожалуйста, свою геолокацию, чтобы вы выбрали ближайший склад!",
+                             reply_markup=keyboard)
     await bot.delete_message(message.from_user.id, message.message_id)
 
 
@@ -423,7 +429,61 @@ async def precheck(pre_checkout_query: types.PreCheckoutQuery):
 @dp.message_handler(content_types=ContentType.SUCCESSFUL_PAYMENT)
 async def process_buynd(message: types.Message):
     if message.successful_payment.invoice_payload == 'some-invoice':
-        await bot.send_message(message.from_user.id, 'Готово! Деньги получены, можете идти!!')
+        # await bot.send_message(message.from_user.id, 'Готово! Деньги получены, можете идти!!')
+        keyboard_qr = types.InlineKeyboardMarkup(resize_keyboard=True)
+        key = types.InlineKeyboardButton(text='Получить QR чек', callback_data='QR')
+        keyboard_qr.add(key)
+        await bot.send_message(message.from_user.id, 'Оплачено!', reply_markup=keyboard_qr)
+
+
+@dp.callback_query_handler(text='QR')
+async def send_qrcode(call: types.CallbackQuery):
+    timestr = time.strftime("%Y%m%d-%H%M%S")
+    filename = f'{call.message.chat.id}_{timestr}.png'
+    images_dir = os.path.join(os.getcwd(), 'QR')
+    os.makedirs(images_dir, exist_ok=True)
+    filepath = os.path.join(images_dir, filename)
+    code = f'{timestr}_{call.message.chat.id}_'
+    url = pyqrcode.create(code)
+    url.png(filepath, scale=15)
+    today = date.today()
+    storage_date_end = today + timedelta(days=user_data['period_days'])
+    storage_date_end = storage_date_end.strftime("%d.%m.%Y")
+    storage_date_start = today.strftime("%d.%m.%Y")
+    quantity = user_data['quantity']
+    quantity = re.findall(r'\d+', quantity)[0]
+    user_data['period_days'] = f'{storage_date_start}-{storage_date_end}'
+
+    user_id = str(call.message.chat.id)
+    try:
+        with open('orders.json') as f:
+            data = json.load(f)
+        if user_id in data:
+            data[user_id].append(user_data)
+            with open('orders.json', 'w') as f:
+                json.dump(data, f, ensure_ascii=False, default=str)
+        else:
+            order = {}
+            order[call.message.chat.id] = user_data
+            with open('orders.json', 'w') as file:
+                json.dump(order, file, ensure_ascii=False, default=str)
+    except:
+        order = {}
+        order[call.message.chat.id] = user_data
+        with open('orders.json', 'w') as file:
+            json.dump(order, file, ensure_ascii=False, default=str)
+
+    await call.message.answer('Заказ создан и успешно оплачен!'
+                              ' Вот ваш электронный ключ для доступа к вашему личному складу. '
+                              f'Вы сможете попасть на склад в любое время в период с {storage_date_start} по {storage_date_end}')
+    photo = open(filepath, 'rb')
+    await bot.send_photo(chat_id=call.message.chat.id, photo=photo)
+    keyboard = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True, one_time_keyboard=True)
+    keyboard.add(KeyboardButton(text="В начало"))
+    await bot.delete_message(call.from_user.id, call.message.message_id)
+    await call.answer('Спасибо за заказ! Если хотите сделать еще один - нажмите "В начало"', show_alert=True)
+
+    await bot.send_message(call.from_user.id, 'Еще заказ?', reply_markup=keyboard)
 
 
 @dp.message_handler(state=None)
@@ -521,55 +581,9 @@ async def born(message: types.Message, state: FSMContext):
             await message.answer('Введите корректную дату в формате: ХХ.ХХ.ХХХХ')
 
 
-@ dp.callback_query_handler(text='Оплатить')
-async def send_qrcode(call: types.CallbackQuery):
-    timestr = time.strftime("%Y%m%d-%H%M%S")
-    filename = f'{call.message.chat.id}_{timestr}.png'
-    images_dir = os.path.join(os.getcwd(), 'QR')
-    os.makedirs(images_dir, exist_ok=True)
-    filepath = os.path.join(images_dir, filename)
-    code = f'{timestr}_{call.message.chat.id}_'
-    url=pyqrcode.create(code)
-    url.png(filepath,scale=15)
-    today = date.today()
-    storage_date_end = today + timedelta(days=user_data['period_days'])
-    storage_date_end = storage_date_end.strftime("%d.%m.%Y")
-    storage_date_start = today.strftime("%d.%m.%Y")
-    quantity = user_data['quantity']
-    quantity = re.findall(r'\d+', quantity)[0]
-    user_data['period_days'] = f'{storage_date_start}-{storage_date_end}'
-
-    user_id = str(call.message.chat.id)
-    try:  
-        with open('orders.json') as f:
-            data = json.load(f)
-        if user_id in data:
-            data[user_id].append(user_data)
-            with open('orders.json', 'w') as f:
-                json.dump(data, f, ensure_ascii=False, default=str)
-        else:
-            order = {}
-            order[call.message.chat.id] = user_data
-            with open('orders.json', 'w') as file:
-                json.dump(order, file, ensure_ascii=False, default=str)
-    except:
-        order = {}
-        order[call.message.chat.id] = user_data
-        with open('orders.json', 'w') as file:
-            json.dump(order, file, ensure_ascii=False, default=str)
-        
-
-    await call.message.answer('Заказ создан и успешно оплачен!'
-            ' Вот ваш электронный ключ для доступа к вашему личному складу. '
-            f'Вы сможете попасть на склад в любое время в период с {storage_date_start} по {storage_date_end}')
-    photo = open(filepath, 'rb')
-    await bot.send_photo(chat_id=call.message.chat.id, photo=photo)
-    await call.message.answer('Спасибо за заказ! Если хотите сделать еще один - нажмите /start')
-    
-
- 
-
 if __name__ == '__main__':
    executor.start_polling(dp, skip_updates=True)
+
+
 
 
