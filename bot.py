@@ -296,14 +296,13 @@ async def send_msg_other(call: types.CallbackQuery):
         ]
     keyboard.add(*buttons)
     await bot.delete_message(call.from_user.id, call.message.message_id)
-    await call.message.answer("Выберите размер ячейки,цена указана за один месяц:", reply_markup=keyboard)
+    await call.message.answer("Выберите размер ячейки.\nЦена указана за один месяц:", reply_markup=keyboard)
     await call.answer()
 
 
 @dp.callback_query_handler(text_contains='w')
 async def send_date(call: types.CallbackQuery):
     user_data['size_cell_price'] = re.sub(r'[()w]', '', call.data).split(',')
-    await call.message.answer(user_data['size_cell_price'][1])
     buttons = [
         types.InlineKeyboardButton(
             text=f"{month} мес {month * int(user_data['size_cell_price'][1])} р", callback_data=f"{month, month * int(user_data['size_cell_price'][1])}h") for month in range(1, 13)
@@ -322,7 +321,6 @@ async def choice_month(call: types.CallbackQuery):
     keyboard_reg = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True, one_time_keyboard=True)
     key = types.KeyboardButton(text="Регистрация")
     keyboard_reg.add(key)
-
     period_days = int(user_data['rent'][0]) * 30.5
     user_data['period_days'] = period_days
     user_data['total_price'] = user_data['total_price']
