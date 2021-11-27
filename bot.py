@@ -4,6 +4,7 @@ import logging
 import os
 import re
 import json
+from pprint import pprint
 
 import aiogram.utils.markdown as fmt
 from aiogram import Bot, Dispatcher, executor, types
@@ -78,6 +79,7 @@ async def cmd_start(message: types.Message):
     await message.answer('Выберите адрес склада:', reply_markup=keyboard)
 
 
+
 @dp.message_handler(content_types=['location'])
 async def handle_location(message: types.Location):
     user_data['lat'] = message.location.latitude
@@ -124,6 +126,7 @@ async def sklad_1_answer(message: types.Message):
     keyboard.add(*buttons)
     await bot.delete_message(message.from_user.id, message.message_id)
     await message.answer("Что хотите хранить?:", reply_markup=keyboard)
+    await message.answer('💁‍♀️', reply_markup=types.ReplyKeyboardRemove())
 
 
 @dp.callback_query_handler(text='сезонные вещи')
@@ -286,57 +289,44 @@ async def seasonal_book(call: types.CallbackQuery):
 
 @dp.callback_query_handler(text='другое')
 async def send_msg_other(call: types.CallbackQuery):
-    await call.message.answer(
-        fmt.text(
-            fmt.text(fmt.hunderline("Условия:\n\n")),
-            fmt.text("599 руб - первый 1 кв.м., далее +150 руб за каждый кв. метр в месяц")
-        ),
-        reply_markup=types.ReplyKeyboardRemove()
-    )
     keyboard = types.InlineKeyboardMarkup(row_width=3, resize_keyboard=True)
     buttons = [
-        types.InlineKeyboardButton(
-            text=f'{cell} кв м', callback_data=f'{cell}w') for cell in range(1, 11)
-    ]
+            types.InlineKeyboardButton(
+                text=f'{month+1} кв м  ({cell} р)', callback_data=f'{month+1, cell}w') for month, cell in enumerate(range(599, 1949+1, 150))
+        ]
     keyboard.add(*buttons)
     await bot.delete_message(call.from_user.id, call.message.message_id)
-    await call.message.answer("Выберите размер ячейки:", reply_markup=keyboard)
+    await call.message.answer("Выберите размер ячейки,цена указана за один месяц:", reply_markup=keyboard)
     await call.answer()
 
 
 @dp.callback_query_handler(text_contains='w')
 async def send_date(call: types.CallbackQuery):
-    user_data['size_cell'] = call.data
+    user_data['size_cell_price'] = re.sub(r'[()w]', '', call.data).split(',')
+    await call.message.answer(user_data['size_cell_price'][1])
     buttons = [
         types.InlineKeyboardButton(
-            text=f"{month} мес", callback_data=f"{month}a") for month in range(1, 13)
+            text=f"{month} мес {month * int(user_data['size_cell_price'][1])} р", callback_data=f"{month, month * int(user_data['size_cell_price'][1])}h") for month in range(1, 13)
     ]
-    keyboard = types.InlineKeyboardMarkup(row_width=4, resize_keyboard=True)
+    keyboard = types.InlineKeyboardMarkup(row_width=3, resize_keyboard=True)
     keyboard.add(*buttons)
     await bot.delete_message(call.from_user.id, call.message.message_id)
     await call.message.answer("Выберите срок аренды:", reply_markup=keyboard)
     await call.answer()
 
 
-@dp.callback_query_handler(text_contains='a')
+@dp.callback_query_handler(text_contains='h')
 async def choice_month(call: types.CallbackQuery):
-    user_data['rent'] = call.data
-    month = re.findall(r'\d+', call.data)
-    size = re.findall(r'\d+', user_data['size_cell'])
-    if size == "1":
-        price_one_month = 599
-    else:
-        price_one_month = ((int(*size) - 1) * 150) + 599
-    total_price = price_one_month * int(*month)
-
+    user_data['rent'] = re.sub(r'[()h]', '', call.data).split(',')
+    user_data['total_price'] = user_data['rent'][1]
     keyboard_reg = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True, one_time_keyboard=True)
     key = types.KeyboardButton(text="Регистрация")
     keyboard_reg.add(key)
 
-    period_days = int(*month) * 30.5
+    period_days = int(user_data['rent'][0]) * 30.5
     user_data['period_days'] = period_days
-    user_data['total_price'] = total_price
-    user_data['quantity'] = size[0]
+    user_data['total_price'] = user_data['total_price']
+    user_data['quantity'] = user_data['size_cell_price'][0]
     user_data['item'] = 'другое'
 
     buttons = [
@@ -349,10 +339,10 @@ async def choice_month(call: types.CallbackQuery):
     await call.message.answer(
         fmt.text(
             fmt.text(fmt.hunderline("Вы выбрали:")),
-            fmt.text(f"\nРазмер ячейки:   {int(*size)} кв м"),
-            fmt.text(f"\nСрок аренды:   {int(*month)} месяцев"),
+            fmt.text(f"\nРазмер ячейки:   {user_data['size_cell_price'][0]} кв м"),
+            fmt.text(f"\nСрок аренды:   {user_data['rent'][0]} месяцев"),
             fmt.text(f"\nПо адресу:   {user_data['adress']}"),
-            fmt.text(f"\nСтоимость итого:   {total_price} рублей"), sep="\n",
+            fmt.text(f"\nСтоимость итого:   {user_data['total_price']} рублей"), sep="\n",
         ), reply_markup=keyboard,
     )
     await call.answer()
@@ -447,7 +437,6 @@ async def precheck(pre_checkout_query: types.PreCheckoutQuery):
 @dp.message_handler(content_types=ContentType.SUCCESSFUL_PAYMENT)
 async def process_buynd(message: types.Message):
     if message.successful_payment.invoice_payload == 'some-invoice':
-        # await bot.send_message(message.from_user.id, 'Готово! Деньги получены, можете идти!!')
         keyboard_qr = types.InlineKeyboardMarkup(resize_keyboard=True)
         key = types.InlineKeyboardButton(text='Получить QR чек', callback_data='QR')
         keyboard_qr.add(key)
@@ -500,7 +489,6 @@ async def send_qrcode(call: types.CallbackQuery):
     keyboard.add(KeyboardButton(text="В начало"))
     await bot.delete_message(call.from_user.id, call.message.message_id)
     await call.answer('Спасибо за заказ! Если хотите сделать еще один - нажмите "В начало" 😉 ', show_alert=True)
-
     await bot.send_message(call.from_user.id, 'Еще заказ?', reply_markup=keyboard)
 
 
@@ -598,13 +586,5 @@ async def born(message: types.Message, state: FSMContext):
             await message.answer('Не допустимый возраст. Вам должно быть не менее 14 и не более 100 лет')
             await message.answer('Введите корректную дату в формате: ХХ.ХХ.ХХХХ')
 
-
 if __name__ == '__main__':
    executor.start_polling(dp, skip_updates=True)
-
-
-
-
-
-
-
