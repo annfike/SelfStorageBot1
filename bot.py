@@ -1,3 +1,5 @@
+import asyncio
+import datetime
 import logging
 import os
 import re
@@ -9,6 +11,7 @@ from aiogram.types import KeyboardButton
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters.state import State, StatesGroup
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
+from aiogram.types.message import ContentType
 from dotenv import load_dotenv
 import png
 
@@ -19,30 +22,37 @@ from datetime import date, timedelta
 import pyqrcode
 from geopy.distance import geodesic as GD
 
-
+loop = asyncio.get_event_loop()
+PAYMENTS_PROVIDER_TOKEN = '381764678:TEST:31252'
 logging.basicConfig(level=logging.INFO)
 load_dotenv()
 token = os.getenv("BOT_KEY")
 user_data = {}
 bot = Bot(token=token, parse_mode=types.ParseMode.HTML)
 storage = MemoryStorage()
-dp = Dispatcher(bot, storage=storage)
+dp = Dispatcher(bot, storage=storage, loop=loop)
+PRICE = types.LabeledPrice(label='Склад', amount=30000)
 
 
 class FsmAdmin(StatesGroup):
     first_name = State()
     last_name = State()
-    email = State()
+    phone = State()
     passport = State()
+    born = State()
 
 
+@dp.message_handler(text='В начало')
 @dp.message_handler(commands='start')
 async def cmd_start(message: types.Message):
     keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True).add(
         KeyboardButton('Отправить свою локацию 🗺️', request_location=True)
     )
     await message.answer("Привет! Я помогу вам арендовать личную ячейку для хранения вещей.\n"
-     "Пришлите мне, пожалуйста, свою геолокацию, чтобы вы выбрали ближайший склад!", reply_markup=keyboard)
+                         "Пришлите мне, пожалуйста, свою геолокацию, чтобы вы выбрали ближайший склад!",
+                         reply_markup=keyboard)
+    await bot.delete_message(message.from_user.id, message.message_id)
+
 
 @dp.message_handler(content_types=['location'])
 async def handle_location(message: types.Location):
@@ -61,7 +71,6 @@ async def handle_location(message: types.Location):
     distance_mitino = round(GD(user_location, location_mitino).km)
     distance_spartak = round(GD(user_location, location_spartak).km)
     distance_sokol = round(GD(user_location, location_sokol).km)
-
 
     keyboard = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True, one_time_keyboard=True)
 
@@ -300,7 +309,7 @@ async def choice_month(call: types.CallbackQuery):
     key = types.KeyboardButton(text="Регистрация")
     keyboard_reg.add(key)
 
-    period_days = int(*month)*30.5
+    period_days = int(*month) * 30.5
     user_data['period_days'] = period_days
     user_data['total_price'] = total_price
     user_data['quantity'] = size[0]
@@ -322,7 +331,6 @@ async def choice_month(call: types.CallbackQuery):
             fmt.text(f"\nСтоимость итого:   {total_price} рублей"), sep="\n",
         ), reply_markup=keyboard,
     )
-    #await bot.delete_message(call.from_user.id, call.message.message_id)
     await call.answer()
 
 
@@ -362,96 +370,155 @@ async def registration(call: types.CallbackQuery):
         await call.message.answer(f' {user}, вы у нас впервые? Давайте зарегистрируемся.', reply_markup=keyboard)
             
 
-
-
 @dp.message_handler(lambda message: message.text == "Отмена")
 async def cancel(message: types.Message):
     await message.answer('Мне жаль, что вы уходите, но если передумаете - нажмите /start')
 
 
 @dp.message_handler(text="Регистрация")
-async def registration(message: types.Message):
+async def logging(message: types.Message):
     user_id = message.from_user.id
-    doc = open('pd.pdf', 'rb')
-    await bot.send_document(user_id, doc)
     keyboard = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True, one_time_keyboard=True)
     buttons = [
-            "Принять",
-            "Отказаться",
+        "Принять",
+        "Отказаться",
     ]
     keyboard.add(*buttons)
+    doc = open('pd.pdf', 'rb')
+    await bot.send_document(user_id, doc)
     await bot.send_message(
         user_id,
-        "Для заказа нужно ваше согласие на обработку персональных данных.",
+        "Для заказа нужно Ваше согласие на обработку персональных данных. Пожалуйста, ознакомьтесь.",
         reply_markup=keyboard,
+    )
+
+
+@dp.message_handler(text='Оплатить')
+async def pay(message: types.Message):
+    await bot.send_message(message.from_user.id, message.text)
+    if PAYMENTS_PROVIDER_TOKEN.split(':')[1] == 'TEST':
+        await bot.send_message(message.from_user.id, 'Склад в Москве-1')
+        await bot.send_invoice(
+            message.from_user.id,
+            title='Склад в Москве',
+            description='Склад в Москве очень, очень нужная штука',
+            provider_token=PAYMENTS_PROVIDER_TOKEN,
+            currency='rub',
+            photo_url='https://d.radikal.ru/d42/2111/76/bc089db2ed4d.jpg',
+            photo_height=512,
+            photo_width=512,
+            photo_size=512,
+            is_flexible=False,
+            prices=[PRICE],
+            start_parameter='storage',
+            payload='some-invoice'
         )
+
+
+@dp.pre_checkout_query_handler()
+async def precheck(pre_checkout_query: types.PreCheckoutQuery):
+    await bot.answer_pre_checkout_query(pre_checkout_query.id, ok=True)
+
+
+@dp.message_handler(content_types=ContentType.SUCCESSFUL_PAYMENT)
+async def process_buynd(message: types.Message):
+    if message.successful_payment.invoice_payload == 'some-invoice':
+        await bot.send_message(message.from_user.id, 'Готово! Деньги получены, можете идти!!')
+
 
 @dp.message_handler(state=None)
 async def begin(message: types.Message):
     if message.text == 'Принять':
         await FsmAdmin.first_name.set()
         await bot.send_message(message.from_user.id, 'Укажите имя')
-    if message.text == 'Отказаться':
+    elif message.text == 'Отказаться':
         user_id = message.from_user.id
-        doc = open('pd.pdf', 'rb')
-        await bot.send_document(user_id, doc)
         keyboard = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True, one_time_keyboard=True)
-        buttons = [
-            "Принять",
-            "Отказаться",
-        ]
-        keyboard.add(*buttons)
+        keyboard.add(KeyboardButton(text="В начало"))
         await bot.send_message(
-        user_id,
-        "Извините, без согласия на обработку данных заказы невозможны.",
-        reply_markup=keyboard,
+            user_id,
+            "Извините, без согласия на обработку данных заказы невозможны.", reply_markup=keyboard
         )
 
 
-@dp.message_handler(state=FsmAdmin.first_name, regexp='[А-Яа-я]')
+@dp.message_handler(state=FsmAdmin.first_name)
 async def first_name(message: types.Message, state: FSMContext):
-    async with state.proxy() as data:
-        data["first_name"] = message.text
-    await bot.send_message(message.from_user.id, 'Укажите фамилию')
-    await FsmAdmin.next()
+    name = re.findall(r"\b[А-Яа-я]{1,15}\b", message.text, flags=re.I)
+    if not name:
+        await bot.send_message(message.from_user.id,
+                               'Используйте кирилицу, либо превышено количество символов (не более 15)')
+    else:
+        async with state.proxy() as data:
+            data["first_name"] = message.text
+        await FsmAdmin.next()
+        await bot.send_message(message.from_user.id, 'Укажите фамилию')
 
 
-@dp.message_handler(state=FsmAdmin.last_name, regexp='[А-Яа-я]')
+@dp.message_handler(state=FsmAdmin.last_name)
 async def last_name(message: types.Message, state: FSMContext):
-    async with state.proxy() as data:
-        data["last_name"] = message.text
-    await bot.send_message(message.from_user.id, 'Укажите паспортные данные')
-    await FsmAdmin.next()
+    name = re.findall(r"\b[А-Яа-я]{1,15}\b", message.text, flags=re.I)
+    if not name:
+        await bot.send_message(message.from_user.id,
+                               'Используйте кирилицу, либо превышено количество символов (не более 15)')
+    else:
+        async with state.proxy() as data:
+            data["last_name"] = message.text
+
+        keyboard_ok = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+        key_1 = types.KeyboardButton(text='контакт', request_contact=True)
+        keyboard_ok.add(key_1)
+        await FsmAdmin.next()
+        await bot.send_message(message.from_user.id, 'Укажите номер телефона')
 
 
-#@dp.message_handler(state=FsmAdmin.email, regexp='[\w\.-]+@[\w\.-]+(\.[\w]+)+')
-@dp.message_handler(state=FsmAdmin.email, regexp='[А-Яа-я]')
+@dp.message_handler(state=FsmAdmin.phone)
+async def phone(message: types.Message, state: FSMContext):
+    phone = re.findall(r"\b[\d+]{10}\b", message.text, flags=re.I)
+    if not phone:
+        await message.answer('Используйте только цифры, либо превышено количество символов (10 цифр)')
+    else:
+        async with state.proxy() as data:
+            data["phone"] = message.text
+        await FsmAdmin.next()
+        await message.answer('Укажите номер паспорта в формате: ХХХХ ХХХХХХ')
+
+
+@dp.message_handler(state=FsmAdmin.passport)
 async def passport(message: types.Message, state: FSMContext):
-    async with state.proxy() as data:
-        data["passport"] = message.text
-    await message.answer('Укажите дату рождения')
-    await FsmAdmin.next()
+    passp = re.findall(r"[\d+]{4}\s[\d+]{6}", message.text, flags=re.I)
+    if not passp:
+        await message.answer('Укажите номер паспорта в формате: ХХХХ ХХХХХХ')
+    else:
+        async with state.proxy() as data:
+            data["pasport"] = message.text
+        await FsmAdmin.next()
+        await message.answer('Укажите дату рождения в формате: ХХ.ХХ.ХХХХ')
 
 
-@dp.message_handler(state=FsmAdmin.passport, regexp='[\d+]')
-async def first_name(message: types.Message, state: FSMContext):
-    async with state.proxy() as data:
-        data["birthday"] = message.text
-        data["id"] = message.from_user.id
-    await bot.delete_message(message.from_user.id, message.message_id)
-    buttons = [
-    types.InlineKeyboardButton(
-        text="Оплатить", callback_data='Оплатить')
-    ]
-    keyboard = types.InlineKeyboardMarkup(resize_keyboard=True)
-    keyboard.add(*buttons)
-    with open('clients.json', 'w') as file:
-        json.dump(data, file, ensure_ascii=False, default=str)
-    
-    await message.answer(f' {data["first_name"]}, вы зарегистрированы! '
-            ' Для оплаты нажмите кнопку ниже:', reply_markup=keyboard)
-    await FsmAdmin.next()
-
+@dp.message_handler(state=FsmAdmin.born)
+async def born(message: types.Message, state: FSMContext):
+    await bot.send_message(message.from_user.id, message.text)
+    born = re.findall(r"[\d+]{2}.[\d+]{2}.[\d+]{4}", message.text, flags=re.I)
+    if not born:
+        await message.answer('Используйте только цифры в формате: ХХ.ХХ.ХХХХ')
+    else:
+        try:
+            year = datetime.datetime.today() - datetime.datetime.strptime(message.text, '%d.%m.%Y')
+        except:
+            await message.answer('Введите корректную дату в формате: ХХ.ХХ.ХХХХ')
+        year_old = year.days // 365
+        if 14 < year_old < 100:
+            async with state.proxy() as data:
+                data["born"] = message.text
+                user_data['logging'] = str(data)
+            keyboard_ok = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+            key_8 = types.KeyboardButton(text='Оплатить')
+            keyboard_ok.add(key_8)
+            await bot.send_message(message.from_user.id, 'Готово!', reply_markup=keyboard_ok)
+            await state.finish()
+        else:
+            await message.answer('Не допустимый возраст. Вам должно быть не менее 14 и не более 100 лет')
+            await message.answer('Введите корректную дату в формате: ХХ.ХХ.ХХХХ')
 
 
 @ dp.callback_query_handler(text='Оплатить')
@@ -491,7 +558,6 @@ async def send_qrcode(call: types.CallbackQuery):
         with open('orders.json', 'w') as file:
             json.dump(order, file, ensure_ascii=False, default=str)
         
-
 
     await call.message.answer('Заказ создан и успешно оплачен!'
             ' Вот ваш электронный ключ для доступа к вашему личному складу. '
