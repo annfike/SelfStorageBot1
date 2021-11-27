@@ -15,7 +15,7 @@ from aiogram.types.message import ContentType
 from dotenv import load_dotenv
 import png
 
-
+import emoji
 import aiogram.utils.markdown as fmt
 import time
 from datetime import date, timedelta
@@ -45,19 +45,37 @@ class FsmAdmin(StatesGroup):
 @dp.message_handler(text='В начало')
 @dp.message_handler(commands='start')
 async def cmd_start(message: types.Message):
-    keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True).add(
-        KeyboardButton('Отправить свою локацию 🗺️', request_location=True)
-    )
+    keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)\
+
+    keyboard.add(KeyboardButton('Отправить свою локацию 🗺️', request_location=True))
+    keyboard.add(KeyboardButton('Выбрать руками 🤦'))
+
     if message.text == 'В начало':
         await message.answer("Рады видеть Вас снова! Начнем! \n"
                              "Пришлите мне, пожалуйста, повторно свою геолокацию, или выберете из списка! "
                              "И мы снова выберем ближайший склад",
                              reply_markup=keyboard)
     else:
-        await message.answer("Привет! Я помогу вам арендовать личную ячейку для хранения вещей.\n"
-                             "Пришлите мне, пожалуйста, свою геолокацию, чтобы вы выбрали ближайший склад!",
+        await message.answer("Привет! 🖐\n\n Я помогу вам арендовать личную ячейку для хранения вещей.\n"
+                             "Пришлите мне, пожалуйста свою геолокацию или выберете из списка,"
+                             " чтобы вы выбрали ближайший склад!",
                              reply_markup=keyboard)
     await bot.delete_message(message.from_user.id, message.message_id)
+
+
+@dp.message_handler(text='Выбрать руками 🤦')
+async def cmd_start(message: types.Message):
+    keyboard = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True)
+    buttons = [
+        "метро Анино",
+        "метро Китай-Город",
+        "метро ВДНХ",
+        "метро Митино",
+        "метро Спартак",
+        "метро Сокол",
+    ]
+    keyboard.add(*buttons)
+    await message.answer('Выберите адрес склада:', reply_markup=keyboard)
 
 
 @dp.message_handler(content_types=['location'])
@@ -81,7 +99,7 @@ async def handle_location(message: types.Location):
     keyboard = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True, one_time_keyboard=True)
 
     buttons = [
-        f"метро Анино \n({distance_anino} км от вас)",
+        f"метро Анино \n({distance_anino} км от вас) 😉",
         f"метро Китай-Город \n({distance_chinatown} км от вас)",
         f"метро ВДНХ \n({distance_vdnh} км от вас)",
         f"метро Митино \n({distance_mitino} км от вас)",
@@ -481,7 +499,7 @@ async def send_qrcode(call: types.CallbackQuery):
     keyboard = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True, one_time_keyboard=True)
     keyboard.add(KeyboardButton(text="В начало"))
     await bot.delete_message(call.from_user.id, call.message.message_id)
-    await call.answer('Спасибо за заказ! Если хотите сделать еще один - нажмите "В начало"', show_alert=True)
+    await call.answer('Спасибо за заказ! Если хотите сделать еще один - нажмите "В начало" 😉 ', show_alert=True)
 
     await bot.send_message(call.from_user.id, 'Еще заказ?', reply_markup=keyboard)
 
@@ -585,5 +603,8 @@ if __name__ == '__main__':
    executor.start_polling(dp, skip_updates=True)
 
 
+
+
+print(emoji.emojize('Python is :😎:', use_aliases=True))
 
 
