@@ -600,11 +600,12 @@ async def last_name(message: types.Message, state: FSMContext):
         async with state.proxy() as data:
             data["last_name"] = message.text
 
-        keyboard_ok = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
-        key_1 = types.KeyboardButton(text='контакт', request_contact=True)
-        keyboard_ok.add(key_1)
+        keyboard_contact = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+        key_1 = types.KeyboardButton(text='Поделиться контактом', request_contact=True)
+        keyboard_contact.add(key_1)
         await FsmAdmin.next()
         await bot.send_message(message.from_user.id, 'Укажите номер телефона')
+        # await bot.send_message(message.from_user.id, 'Укажите номер телефона', reply_markup=keyboard_contact)
 
 
 @dp.message_handler(state=FsmAdmin.phone)
