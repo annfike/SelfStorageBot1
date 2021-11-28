@@ -23,16 +23,17 @@ from datetime import date, timedelta
 import pyqrcode
 from geopy.distance import geodesic as GD
 
-loop = asyncio.get_event_loop()
-PAYMENTS_PROVIDER_TOKEN = os.getenv("PAY_TOKEN")
-logging.basicConfig(level=logging.INFO)
 load_dotenv()
+loop = asyncio.get_event_loop()
+pay_token = os.getenv("PAY_TOKEN")
+
+logging.basicConfig(level=logging.INFO)
+
 token = os.getenv("BOT_KEY")
 user_data = {}
 bot = Bot(token=token, parse_mode=types.ParseMode.HTML)
 storage = MemoryStorage()
 dp = Dispatcher(bot, storage=storage, loop=loop)
-
 
 
 class FsmAdmin(StatesGroup):
@@ -44,6 +45,7 @@ class FsmAdmin(StatesGroup):
 
 
 @dp.message_handler(text='В начало')
+@dp.message_handler(text='Отмена')
 @dp.message_handler(commands='start')
 async def cmd_start(message: types.Message):
     keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)\
@@ -61,7 +63,9 @@ async def cmd_start(message: types.Message):
                              "Пришлите мне, пожалуйста свою геолокацию или выберете из списка,"
                              " чтобы вы выбрали ближайший склад!",
                              reply_markup=keyboard)
-    await bot.delete_message(message.from_user.id, message.message_id)
+    # await bot.delete_message(message.from_user.id, message.message_id)
+    # await bot.send_message(message.from_user.id, f"{PAYMENTS_PROVIDER_TOKEN}", message.message_id)
+
 
 
 @dp.message_handler(text='Выбрать руками 🤦')
@@ -77,7 +81,6 @@ async def cmd_start(message: types.Message):
     ]
     keyboard.add(*buttons)
     await message.answer('Выберите адрес склада:', reply_markup=keyboard)
-
 
 
 @dp.message_handler(content_types=['location'])
@@ -322,32 +325,59 @@ async def choice_month(call: types.CallbackQuery):
     user_data['total_price'] = user_data['rent'][1]
     keyboard_reg = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True, one_time_keyboard=True)
 
-    # key = types.KeyboardButton(text="Регистрация")
-    # keyboard_reg.add(key)
+
     period_days = int(user_data['rent'][0]) * 30.5
     user_data['period_days'] = period_days
     user_data['total_price'] = user_data['total_price']
     user_data['quantity'] = user_data['size_cell_price'][0]
     user_data['item'] = 'другое'
 
+    # buttons = [
+    #     types.InlineKeyboardButton(
+    #         text="Забронировать", callback_data='Забронировать')
+    # ]
+    keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+    keyboard.add(KeyboardButton(text="телефон мамин у меня нет промокода"))
+
+    await call.message.answer("Введите промокод:", reply_markup=keyboard)
+
+
+    await call.answer()
+
+
+@dp.message_handler(text='storage2022')
+@dp.message_handler(text='storage15')
+@dp.message_handler(text='телефон мамин у меня нет промокода')
+async def promocod(message: types.Message):
+    non_discont = user_data['total_price']
+    if message.text == "storage2022":
+        discont = float(user_data['total_price']) * 0.2
+        user_data['total_price'] = float(user_data['total_price']) - float(user_data['total_price']) * 0.2
+    elif message.text == "storage15":
+        discont = float(user_data['total_price']) * 0.15
+        user_data['total_price'] = float(user_data['total_price']) - float(user_data['total_price']) * 0.15
+    elif message.text == "телефон мамин у меня нет промокода":
+        discont = 0
+        user_data['total_price'] = user_data['total_price']
+    await bot.send_message(message.from_user.id, message.text, reply_markup=types.ReplyKeyboardRemove())
     buttons = [
         types.InlineKeyboardButton(
             text="Забронировать", callback_data='Забронировать')
     ]
     keyboard = types.InlineKeyboardMarkup(resize_keyboard=True)
     keyboard.add(*buttons)
-    await bot.delete_message(call.from_user.id, call.message.message_id)
+    await bot.delete_message(message.from_user.id, message.message_id)
 
-    await call.message.answer(
+    await message.answer(
         fmt.text(
             fmt.text(fmt.hunderline("Вы выбрали:")),
             fmt.text(f"\nРазмер ячейки:   {user_data['size_cell_price'][0]} кв м"),
             fmt.text(f"\nСрок аренды:   {user_data['rent'][0]} месяцев"),
             fmt.text(f"\nПо адресу:   {user_data['adress']}"),
-            fmt.text(f"\nСтоимость итого:   {user_data['total_price']} рублей"), sep="\n",
-        ), reply_markup=keyboard,
-    )
-    await call.answer()
+            fmt.text(f"\nСтоимость без скидки:   {non_discont} рублей"),
+            fmt.text(f"\nСкидка:   {int(discont)} рублей"),
+            fmt.text(f"\nСтоимость итого:   {int(user_data['total_price'])} рублей"), sep="\n",
+        ), reply_markup=keyboard)
 
 
 @ dp.callback_query_handler(text='Забронировать')
@@ -387,10 +417,9 @@ async def registration(call: types.CallbackQuery):
         await call.message.answer(f' {user}, вы у нас впервые? Давайте зарегистрируемся.', reply_markup=keyboard)
 
 
-
-@dp.message_handler(lambda message: message.text == "Отмена")
-async def cancel(message: types.Message):
-    await message.answer('Мне жаль, что вы уходите, но если передумаете - нажмите /start')
+# @dp.message_handler(lambda message: message.text == "Отмена")
+# async def cancel(message: types.Message):
+#     await message.answer('Мне жаль, что вы уходите, но если передумаете - нажмите /start')
 
 
 @dp.message_handler(text="Регистрация")
@@ -411,19 +440,18 @@ async def logging(message: types.Message):
     )
 
 
-
-@ dp.callback_query_handler(text='Оплатить')
-async def pay(call: types.CallbackQuery):
+@ dp.message_handler(text='Оплатить')
+async def pay(message: types.Message):
     PRICE = types.LabeledPrice(label='Склад', amount=30000)
     # PRICE = types.LabeledPrice(label='Склад', amount=user_data['total_price'])
-    await bot.send_message(call.from_user.id, call.data)
-    if PAYMENTS_PROVIDER_TOKEN.split(':')[1] == 'TEST':
-        await bot.send_message(call.from_user.id, 'Склад в Москве-1')
+    await bot.send_message(message.from_user.id, message.text)
+    if pay_token.split(':')[1] == 'TEST':
+        await bot.send_message(message.from_user.id, 'Склад в Москве-1')
         await bot.send_invoice(
-            call.from_user.id,
+            message.from_user.id,
             title='Склад в Москве',
             description='Склад в Москве очень, очень нужная штука',
-            provider_token=PAYMENTS_PROVIDER_TOKEN,
+            provider_token=pay_token,
             currency='rub',
             photo_url='https://d.radikal.ru/d42/2111/76/bc089db2ed4d.jpg',
             photo_height=512,
@@ -499,7 +527,6 @@ async def send_qrcode(call: types.CallbackQuery):
     await bot.send_message(call.from_user.id, 'Еще заказ?', reply_markup=keyboard)
 
 
-
 @dp.message_handler(state=None)
 async def begin(message: types.Message):
     if message.text == 'Принять':
@@ -564,7 +591,7 @@ async def passport(message: types.Message, state: FSMContext):
         await message.answer('Укажите номер паспорта в формате: ХХХХ ХХХХХХ')
     else:
         async with state.proxy() as data:
-            data["pasport"] = message.text
+            data["passport"] = message.text
         await FsmAdmin.next()
         await message.answer('Укажите дату рождения в формате: ХХ.ХХ.ХХХХ')
 
@@ -594,5 +621,8 @@ async def born(message: types.Message, state: FSMContext):
             await message.answer('Не допустимый возраст. Вам должно быть не менее 14 и не более 100 лет')
             await message.answer('Введите корректную дату в формате: ХХ.ХХ.ХХХХ')
 
+
 if __name__ == '__main__':
    executor.start_polling(dp, skip_updates=True)
+
+
