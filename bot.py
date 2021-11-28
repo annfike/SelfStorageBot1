@@ -24,10 +24,10 @@ import pyqrcode
 from geopy.distance import geodesic as GD
 
 loop = asyncio.get_event_loop()
-PAYMENTS_PROVIDER_TOKEN = '381764678:TEST:31252'
 logging.basicConfig(level=logging.INFO)
 load_dotenv()
 token = os.getenv("BOT_KEY")
+PAYMENTS_PROVIDER_TOKEN = os.getenv("PAYMENTS_PROVIDER_TOKEN")
 user_data = {}
 bot = Bot(token=token, parse_mode=types.ParseMode.HTML)
 storage = MemoryStorage()
@@ -42,7 +42,7 @@ class FsmAdmin(StatesGroup):
     passport = State()
     born = State()
 
-
+@dp.callback_query_handler(text='start')
 @dp.message_handler(text='В начало')
 @dp.message_handler(commands='start')
 async def cmd_start(message: types.Message):
@@ -289,7 +289,7 @@ async def seasonal_book(call: types.CallbackQuery):
 
 @dp.callback_query_handler(text='другое')
 async def send_msg_other(call: types.CallbackQuery):
-    keyboard = types.InlineKeyboardMarkup(row_width=3, resize_keyboard=True)
+    keyboard = types.InlineKeyboardMarkup(row_width=2, resize_keyboard=True)
     buttons = [
             types.InlineKeyboardButton(
                 text=f'{month+1} кв м  ({cell} р)', callback_data=f'{month+1, cell}w') for month, cell in enumerate(range(599, 1949+1, 150))
@@ -305,9 +305,9 @@ async def send_date(call: types.CallbackQuery):
     user_data['size_cell_price'] = re.sub(r'[()w]', '', call.data).split(',')
     buttons = [
         types.InlineKeyboardButton(
-            text=f"{month} мес {month * int(user_data['size_cell_price'][1])} р", callback_data=f"{month, month * int(user_data['size_cell_price'][1])}h") for month in range(1, 13)
+            text=f"{month} мес ({month * int(user_data['size_cell_price'][1])} р)", callback_data=f"{month, month * int(user_data['size_cell_price'][1])}h") for month in range(1, 13)
     ]
-    keyboard = types.InlineKeyboardMarkup(row_width=3, resize_keyboard=True)
+    keyboard = types.InlineKeyboardMarkup(row_width=2, resize_keyboard=True)
     keyboard.add(*buttons)
     await bot.delete_message(call.from_user.id, call.message.message_id)
     await call.message.answer("Выберите срок аренды:", reply_markup=keyboard)
@@ -355,14 +355,13 @@ async def registration(call: types.CallbackQuery):
         with open('clients.json') as f:
             data = json.load(f)
         if user_id in data:
-            buttons = [
-            types.InlineKeyboardButton(
-                text="Оплатить", callback_data='Оплатить')
-            ]
-            keyboard = types.InlineKeyboardMarkup(resize_keyboard=True)
-            keyboard.add(*buttons)
+            
+            keyboard_ok = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+            key_8 = types.KeyboardButton(text='Оплатить')
+            key_9 = types.KeyboardButton(text='Отмена')
+            keyboard_ok.add(key_8).add(key_9)
             await call.message.answer(f' {user}, вы уже у нас зарегистрированы, рады видеть вас снова! '
-                    ' Для оплаты нажмите кнопку ниже:', reply_markup=keyboard)
+                     ' Для оплаты нажмите кнопку ниже:', reply_markup=keyboard_ok)
             await call.answer()
         else:
             keyboard = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True, one_time_keyboard=True)
@@ -407,9 +406,9 @@ async def logging(message: types.Message):
 
 @dp.message_handler(text='Оплатить')
 async def pay(message: types.Message):
-    await bot.send_message(message.from_user.id, message.text)
     if PAYMENTS_PROVIDER_TOKEN.split(':')[1] == 'TEST':
         await bot.send_message(message.from_user.id, 'Склад в Москве-1')
+        print(user_data)
         await bot.send_invoice(
             message.from_user.id,
             title='Склад в Москве',
@@ -483,11 +482,30 @@ async def send_qrcode(call: types.CallbackQuery):
                               f'Вы сможете попасть на склад в любое время в период с {storage_date_start} по {storage_date_end}')
     photo = open(filepath, 'rb')
     await bot.send_photo(chat_id=call.message.chat.id, photo=photo)
-    keyboard = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True, one_time_keyboard=True)
-    keyboard.add(KeyboardButton(text="В начало"))
-    await bot.delete_message(call.from_user.id, call.message.message_id)
-    await call.answer('Спасибо за заказ! Если хотите сделать еще один - нажмите "В начало" 😉 ', show_alert=True)
-    await bot.send_message(call.from_user.id, 'Еще заказ?', reply_markup=keyboard)
+    # keyboard = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True, one_time_keyboard=True)
+    # keyboard.add(KeyboardButton(text="В начало"))
+    # await bot.delete_message(call.from_user.id, call.message.message_id)
+    # await call.answer('Спасибо за заказ! Если хотите сделать еще один - нажмите "В начало" 😉 ', show_alert=True)
+    # await bot.send_message(call.from_user.id, 'Еще заказ?', reply_markup=keyboard)
+    buttons = [
+        types.InlineKeyboardButton(text='Новый заказ', callback_data='start'),
+        types.InlineKeyboardButton(text='Посмотреть заказы', callback_data='story'),
+               ]
+
+    keyboard = types.InlineKeyboardMarkup(row_width=2, resize_keyboard=True)
+    keyboard.add(*buttons)
+    await call.message.answer("Спасибо! Что желаете?", reply_markup=keyboard)
+    await call.answer()
+
+
+@dp.callback_query_handler(text='story')
+async def send_date(call: types.CallbackQuery):
+    user_id = str(call.message.chat.id)
+    with open('orders.json') as f:
+        data = json.load(f)
+    print("Ваши заказы:")
+
+
 
 
 @dp.message_handler(state=None)
