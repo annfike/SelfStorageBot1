@@ -323,8 +323,9 @@ async def choice_month(call: types.CallbackQuery):
     user_data['rent'] = re.sub(r'[()h]', '', call.data).split(',')
     user_data['total_price'] = user_data['rent'][1]
     keyboard_reg = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True, one_time_keyboard=True)
-    key = types.KeyboardButton(text="Регистрация")
-    keyboard_reg.add(key)
+
+    # key = types.KeyboardButton(text="Регистрация")
+    # keyboard_reg.add(key)
     period_days = int(user_data['rent'][0]) * 30.5
     user_data['period_days'] = period_days
     user_data['total_price'] = user_data['total_price']
@@ -338,6 +339,7 @@ async def choice_month(call: types.CallbackQuery):
     keyboard = types.InlineKeyboardMarkup(resize_keyboard=True)
     keyboard.add(*buttons)
     await bot.delete_message(call.from_user.id, call.message.message_id)
+
     await call.message.answer(
         fmt.text(
             fmt.text(fmt.hunderline("Вы выбрали:")),
@@ -352,8 +354,8 @@ async def choice_month(call: types.CallbackQuery):
 
 @ dp.callback_query_handler(text='Забронировать')
 async def registration(call: types.CallbackQuery):
-    await bot.delete_message(call.from_user.id, call.message.message_id)
-    user = call.message["chat"]["first_name"]    
+    # await bot.delete_message(call.from_user.id, call.message.message_id)
+    user = call.message["chat"]["first_name"]
     user_id = str(call.from_user.id)
     try:
         with open('clients.json') as f:
@@ -375,6 +377,7 @@ async def registration(call: types.CallbackQuery):
             ]
             keyboard.add(*buttons)
             await call.message.answer(f' {user}, вы у нас впервые? Давайте зарегистрируемся.', reply_markup=keyboard)
+
     except:
         keyboard = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True, one_time_keyboard=True)
         buttons = [
@@ -383,7 +386,8 @@ async def registration(call: types.CallbackQuery):
         ]
         keyboard.add(*buttons)
         await call.message.answer(f' {user}, вы у нас впервые? Давайте зарегистрируемся.', reply_markup=keyboard)
-            
+
+
 
 @dp.message_handler(lambda message: message.text == "Отмена")
 async def cancel(message: types.Message):
@@ -408,8 +412,6 @@ async def logging(message: types.Message):
     )
 
 
-@dp.message_handler(text='Оплатить')
-async def pay(message: types.Message):
 
 
 
@@ -420,8 +422,17 @@ async def pay(message: types.Message):
     if PAYMENTS_PROVIDER_TOKEN.split(':')[1] == 'TEST':
         await bot.send_message(message.from_user.id, 'Склад в Москве-1')
         print(user_data)
+
+@ dp.callback_query_handler(text='Оплатить')
+async def pay(call: types.CallbackQuery):
+    PRICE = types.LabeledPrice(label='Склад', amount=30000)
+    # PRICE = types.LabeledPrice(label='Склад', amount=user_data['total_price'])
+    await bot.send_message(call.from_user.id, call.data)
+    if PAYMENTS_PROVIDER_TOKEN.split(':')[1] == 'TEST':
+        await bot.send_message(call.from_user.id, 'Склад в Москве-1')
+
         await bot.send_invoice(
-            message.from_user.id,
+            call.from_user.id,
             title='Склад в Москве',
             description='Склад в Москве очень, очень нужная штука',
             provider_token=PAYMENTS_PROVIDER_TOKEN,
@@ -515,6 +526,7 @@ async def send_date(call: types.CallbackQuery):
     with open('orders.json') as f:
         data = json.load(f)
     print("Ваши заказы:")
+
 
 
 
