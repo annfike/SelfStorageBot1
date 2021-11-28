@@ -34,6 +34,7 @@ pyparsing==3.0.6
 pypng==0.0.21
 PyQRCode==1.2.1
 PySocks==1.7.1
+pyTelegramBotAPI==4.2.0
 python-dotenv==0.19.2
 python-telegram-bot==13.7
 pytimeparse==1.1.8
