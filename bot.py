@@ -298,13 +298,14 @@ async def send_date(call: types.CallbackQuery):
     user_data['size_cell_price'] = re.sub(r'[()w]', '', call.data).split(',')
     buttons = [
         types.InlineKeyboardButton(
-            text=f"{month} мес ({month * int(user_data['size_cell_price'][1])} р)",
+            text=f"{month} мес: {month * int(user_data['size_cell_price'][1])}р",
             callback_data=f"{month, month * int(user_data['size_cell_price'][1])}h") for month in range(1, 13)
     ]
     keyboard = types.InlineKeyboardMarkup(row_width=2, resize_keyboard=True)
     keyboard.add(*buttons)
     await bot.delete_message(call.from_user.id, call.message.message_id)
-    await call.message.answer("Выберите срок аренды:", reply_markup=keyboard)
+    await call.message.answer(f"Ваш выборор: склад {user_data['size_cell_price'][0]} кв м")
+    await call.message.answer("Выберите срок аренды и стоимость:", reply_markup=keyboard)
     await call.answer()
 
 
@@ -322,7 +323,7 @@ async def choice_month(call: types.CallbackQuery):
     keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
     keyboard.add(KeyboardButton(text="телефон мамин у меня нет промокода"))
 
-    await call.message.answer("Введите промокод:", reply_markup=keyboard)
+    await call.message.answer("Введите промокод:", reply_markup=keyboard_reg)
     await call.answer()
 
 
