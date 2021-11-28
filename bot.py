@@ -304,7 +304,7 @@ async def send_date(call: types.CallbackQuery):
     keyboard = types.InlineKeyboardMarkup(row_width=2, resize_keyboard=True)
     keyboard.add(*buttons)
     await bot.delete_message(call.from_user.id, call.message.message_id)
-    await call.message.answer(f"Ваш выборор: склад {user_data['size_cell_price'][0]} кв м")
+    await call.message.answer(f"Ваш выбор: склад {user_data['size_cell_price'][0]} кв м")
     await call.message.answer("Выберите срок аренды и стоимость:", reply_markup=keyboard)
     await call.answer()
 
@@ -313,35 +313,47 @@ async def send_date(call: types.CallbackQuery):
 async def choice_month(call: types.CallbackQuery):
     user_data['rent'] = re.sub(r'[()h]', '', call.data).split(',')
     user_data['total_price'] = user_data['rent'][1]
-    keyboard_reg = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True, one_time_keyboard=True)
-
     period_days = int(user_data['rent'][0]) * 30.5
     user_data['period_days'] = period_days
     user_data['total_price'] = user_data['total_price']
     user_data['quantity'] = f"Склад объемом {user_data['size_cell_price'][0]} кв м"
     user_data['item'] = 'другое'
     keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
-    keyboard.add(KeyboardButton(text="телефон мамин у меня нет промокода"))
-
-    await call.message.answer("Введите промокод:", reply_markup=keyboard_reg)
-    await call.answer()
+    if 1 < int(user_data['rent'][0]):
+        keyboard.add(KeyboardButton(text="это мамин смартфон у меня нет промокода"))
+        await call.message.answer("Введите промокод:", reply_markup=keyboard)
+        await call.answer()
+    else:
+        keyboard_lol = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+        keyboard_lol.add(KeyboardButton(text="Продолжить без промокода"))
+        await call.message.answer(f"Срок {user_data['rent'][0]} месяц", reply_markup=keyboard_lol)
 
 
 @dp.message_handler(text='storage2022')
 @dp.message_handler(text='storage15')
-@dp.message_handler(text='телефон мамин у меня нет промокода')
+@dp.message_handler(text='это мамин смартфон у меня нет промокода')
+@dp.message_handler(text="Продолжить без промокода")
 async def promocod(message: types.Message):
     non_discont = user_data['total_price']
     if message.text == "storage2022":
-        discont = float(user_data['total_price']) * 0.2
-        user_data['total_price'] = float(user_data['total_price']) - float(user_data['total_price']) * 0.2
+        if 6 <= int(user_data['rent'][0]):
+            discont = float(user_data['total_price']) * 0.2
+            user_data['total_price'] = float(user_data['total_price']) - float(user_data['total_price']) * 0.2
+        else:
+            await bot.send_message(message.from_user.id, "Промокод не подходит к выбранному сроку",
+                                   reply_markup=types.ReplyKeyboardRemove())
     elif message.text == "storage15":
-        discont = float(user_data['total_price']) * 0.15
-        user_data['total_price'] = float(user_data['total_price']) - float(user_data['total_price']) * 0.15
-    elif message.text == "телефон мамин у меня нет промокода":
+        if 1 < int(user_data['rent'][0]) < 6:
+            discont = float(user_data['total_price']) * 0.15
+            user_data['total_price'] = float(user_data['total_price']) - float(user_data['total_price']) * 0.15
+        else:
+            await bot.send_message(message.from_user.id, "Промокод не подходит к выбранному сроку",
+                                   reply_markup=types.ReplyKeyboardRemove())
+    elif message.text == "это мамин смартфон у меня нет промокода" or message.text == "Продолжить без промокода":
         discont = 0
         user_data['total_price'] = user_data['total_price']
-    await bot.send_message(message.from_user.id, message.text, reply_markup=types.ReplyKeyboardRemove())
+        await bot.send_message(message.from_user.id, f"Без промокода: ", reply_markup=types.ReplyKeyboardRemove())
+
     buttons = [
         types.InlineKeyboardButton(
             text="Забронировать", callback_data='Забронировать')
@@ -349,17 +361,19 @@ async def promocod(message: types.Message):
     keyboard = types.InlineKeyboardMarkup(resize_keyboard=True)
     keyboard.add(*buttons)
     await bot.delete_message(message.from_user.id, message.message_id)
-
-    await message.answer(
-        fmt.text(
-            fmt.text(fmt.hunderline("Вы выбрали:")),
-            fmt.text(f"\nРазмер ячейки:   {user_data['size_cell_price'][0]} кв м"),
-            fmt.text(f"\nСрок аренды:   {user_data['rent'][0]} месяцев"),
-            fmt.text(f"\nПо адресу:   {user_data['adress']}"),
-            fmt.text(f"\nСтоимость без скидки:   {non_discont} рублей"),
-            fmt.text(f"\nСкидка:   {int(discont)} рублей"),
-            fmt.text(f"\nСтоимость итого:   {int(user_data['total_price'])} рублей"), sep="\n",
-        ), reply_markup=keyboard)
+    try:
+        await message.answer(
+            fmt.text(
+                fmt.text(fmt.hunderline("Вы выбрали:")),
+                fmt.text(f"\nРазмер ячейки:   {user_data['size_cell_price'][0]} кв м"),
+                fmt.text(f"\nСрок аренды:   {user_data['rent'][0]} месяцев"),
+                fmt.text(f"\nПо адресу:   {user_data['adress']}"),
+                fmt.text(f"\nСтоимость без скидки:   {non_discont} рублей"),
+                fmt.text(f"\nСкидка:   {int(discont)} рублей"),
+                fmt.text(f"\nСтоимость итого:   {int(user_data['total_price'])} рублей"), sep="\n",
+            ), reply_markup=keyboard)
+    except:
+        pass
 
 
 @dp.callback_query_handler(text='Забронировать')
@@ -370,7 +384,6 @@ async def registration(call: types.CallbackQuery):
         with open('clients.json') as f:
             data = json.load(f)
         if user_id in data:
-
             keyboard_ok = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
             key_8 = types.KeyboardButton(text='Оплатить')
             key_9 = types.KeyboardButton(text='Отмена')
