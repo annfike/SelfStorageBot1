@@ -1,1 +1,1 @@
-"FSMContextProxy state = 'FsmAdmin:passport', data = {'first_name': 'À', 'last_name': 'À', 'passport': 'À', 'birthday': '2', 'id': 110968809}, closed = True"
+"FSMContextProxy state = 'FsmAdmin:born', data = {'first_name': 'Ð¿', 'last_name': 'Ð¿', 'phone': '1234567898', 'passport': '1111 111111', 'id': 1015193447, 'born': '11.11.2000'}, closed = True"

@@ -4,9 +4,7 @@ import logging
 import os
 import re
 import json
-from pprint import pprint
 
-import aiogram.utils.markdown as fmt
 from aiogram import Bot, Dispatcher, executor, types
 from aiogram.types import KeyboardButton
 from aiogram.dispatcher import FSMContext
@@ -14,10 +12,8 @@ from aiogram.dispatcher.filters.state import State, StatesGroup
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.types.message import ContentType
 from dotenv import load_dotenv
-import png
-
-import emoji
 import aiogram.utils.markdown as fmt
+
 import time
 from datetime import date, timedelta
 import pyqrcode
@@ -26,12 +22,7 @@ from geopy.distance import geodesic as GD
 load_dotenv()
 loop = asyncio.get_event_loop()
 pay_token = os.getenv("PAY_TOKEN")
-
-
-
-
 logging.basicConfig(level=logging.INFO)
-
 token = os.getenv("BOT_KEY")
 user_data = {}
 bot = Bot(token=token, parse_mode=types.ParseMode.HTML)
@@ -51,8 +42,7 @@ class FsmAdmin(StatesGroup):
 @dp.message_handler(text='Отмена')
 @dp.message_handler(commands='start')
 async def cmd_start(message: types.Message):
-    keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)\
-
+    keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
     keyboard.add(KeyboardButton('Отправить свою локацию 🗺️', request_location=True))
     keyboard.add(KeyboardButton('Выбрать руками 🤦'))
 
@@ -120,7 +110,7 @@ async def handle_location(message: types.Location):
 @dp.message_handler(text_contains="метро")
 async def sklad_1_answer(message: types.Message):
     user_data['adress'] = message.text
-  
+
     keyboard = types.InlineKeyboardMarkup(row_width=2, resize_keyboard=True)
 
     buttons = [
@@ -135,13 +125,12 @@ async def sklad_1_answer(message: types.Message):
 
 @dp.callback_query_handler(text='сезонные вещи')
 async def send_msg(call: types.CallbackQuery):
-
     buttons = [
         types.InlineKeyboardButton(text='Лыжи', callback_data='Лыжи'),
         types.InlineKeyboardButton(text='Сноуборд', callback_data='Сноуборд'),
         types.InlineKeyboardButton(text='Велосипед', callback_data='Велосипед'),
         types.InlineKeyboardButton(text='Колеса', callback_data='Колеса'),
-               ]
+    ]
 
     keyboard = types.InlineKeyboardMarkup(row_width=2, resize_keyboard=True)
     keyboard.add(*buttons)
@@ -175,7 +164,7 @@ async def seasonal_choose_quantity(call: types.CallbackQuery):
     await call.answer()
 
 
-@ dp.callback_query_handler(text_contains='шт')
+@dp.callback_query_handler(text_contains='шт')
 async def seasonal_choose_period(call: types.CallbackQuery):
     user_data['quantity'] = call.data
     buttons = [
@@ -188,7 +177,7 @@ async def seasonal_choose_period(call: types.CallbackQuery):
         types.InlineKeyboardButton(text='4 месяца', callback_data='4 месяца'),
         types.InlineKeyboardButton(text='5 месяцев', callback_data='5 месяцев'),
         types.InlineKeyboardButton(text='6 месяцев', callback_data='6 месяцев'),
-               ]
+    ]
 
     keyboard = types.InlineKeyboardMarkup(row_width=3, resize_keyboard=True)
     keyboard.add(*buttons)
@@ -197,69 +186,69 @@ async def seasonal_choose_period(call: types.CallbackQuery):
     await call.answer()
 
 
-@ dp.callback_query_handler(text='1 неделя')
-@ dp.callback_query_handler(text='2 недели')
-@ dp.callback_query_handler(text='3 недели')
-@ dp.callback_query_handler(text='1 месяц')
-@ dp.callback_query_handler(text='2 месяца')
-@ dp.callback_query_handler(text='3 месяца')
-@ dp.callback_query_handler(text='4 месяца')
-@ dp.callback_query_handler(text='5 месяцев')
-@ dp.callback_query_handler(text='6 месяцев')
+@dp.callback_query_handler(text='1 неделя')
+@dp.callback_query_handler(text='2 недели')
+@dp.callback_query_handler(text='3 недели')
+@dp.callback_query_handler(text='1 месяц')
+@dp.callback_query_handler(text='2 месяца')
+@dp.callback_query_handler(text='3 месяца')
+@dp.callback_query_handler(text='4 месяца')
+@dp.callback_query_handler(text='5 месяцев')
+@dp.callback_query_handler(text='6 месяцев')
 async def seasonal_book(call: types.CallbackQuery):
     user_data['rent'] = call.data
     periods = {
-            '1 неделя': 7,
-            '2 недели': 14,
-            '3 недели': 21,
-            '1 месяц': 31,
-            '2 месяца': 61,
-            '3 месяца': 92,
-            '4 месяца': 122,
-            '5 месяцев': 153,
-            '6 месяцев': 184,
-            }
+        '1 неделя': 7,
+        '2 недели': 14,
+        '3 недели': 21,
+        '1 месяц': 31,
+        '2 месяца': 61,
+        '3 месяца': 92,
+        '4 месяца': 122,
+        '5 месяцев': 153,
+        '6 месяцев': 184,
+    }
     prices = {
-    'Лыжи': {
-        '1 неделя': 100,
-        '2 недели': 200,
-        '3 недели': 300,
-        '1 месяц': 300,
-        '2 месяца': 600,
-        '3 месяца': 900,
-        '4 месяца': 1200,
-        '5 месяцев': 1500,
-        '6 месяцев': 1800,
+        'Лыжи': {
+            '1 неделя': 100,
+            '2 недели': 200,
+            '3 недели': 300,
+            '1 месяц': 300,
+            '2 месяца': 600,
+            '3 месяца': 900,
+            '4 месяца': 1200,
+            '5 месяцев': 1500,
+            '6 месяцев': 1800,
         },
-    'Велосипед': {
-        '1 неделя': 150,
-        '2 недели': 300,
-        '3 недели': 450,
-        '1 месяц': 400,
-        '2 месяца': 800,
-        '3 месяца': 1200,
-        '4 месяца': 1600,
-        '5 месяцев': 2000,
-        '6 месяцев': 2400,
+        'Велосипед': {
+            '1 неделя': 150,
+            '2 недели': 300,
+            '3 недели': 450,
+            '1 месяц': 400,
+            '2 месяца': 800,
+            '3 месяца': 1200,
+            '4 месяца': 1600,
+            '5 месяцев': 2000,
+            '6 месяцев': 2400,
         },
-    'Сноуборд': {
-        '1 неделя': 100,
-        '2 недели': 200,
-        '3 недели': 300,
-        '1 месяц': 300,
-        '2 месяца': 600,
-        '3 месяца': 900,
-        '4 месяца': 1200,
-        '5 месяцев': 1500,
-        '6 месяцев': 1800,
+        'Сноуборд': {
+            '1 неделя': 100,
+            '2 недели': 200,
+            '3 недели': 300,
+            '1 месяц': 300,
+            '2 месяца': 600,
+            '3 месяца': 900,
+            '4 месяца': 1200,
+            '5 месяцев': 1500,
+            '6 месяцев': 1800,
         },
-    'Колеса': {
-        '1 месяц': 200,
-        '2 месяца': 400,
-        '3 месяца': 600,
-        '4 месяца': 800,
-        '5 месяцев': 1000,
-        '6 месяцев': 1200,
+        'Колеса': {
+            '1 месяц': 200,
+            '2 месяца': 400,
+            '3 месяца': 600,
+            '4 месяца': 800,
+            '5 месяцев': 1000,
+            '6 месяцев': 1200,
         },
     }
     period = user_data['rent']
@@ -268,7 +257,7 @@ async def seasonal_book(call: types.CallbackQuery):
     item = user_data['item']
     quantity = user_data['quantity']
     quantity = re.findall(r'\d+', quantity)[0]
-   
+
     total_price = int(quantity) * prices[item][period]
     user_data['period_days'] = period_days
     user_data['total_price'] = total_price
@@ -287,7 +276,6 @@ async def seasonal_book(call: types.CallbackQuery):
             fmt.text(f"\nПо адресу:   {storage}"),
             fmt.text(f"\nСтоимость:   {total_price} рублей"), sep="\n"
         ), reply_markup=keyboard)
-
     await call.answer()
 
 
@@ -295,10 +283,10 @@ async def seasonal_book(call: types.CallbackQuery):
 async def send_msg_other(call: types.CallbackQuery):
     keyboard = types.InlineKeyboardMarkup(row_width=2, resize_keyboard=True)
     buttons = [
-            types.InlineKeyboardButton(
-                text=f'{month+1} кв м  ({cell} р)',
-                callback_data=f'{month+1, cell}w') for month, cell in enumerate(range(599, 1949+1, 150))
-        ]
+        types.InlineKeyboardButton(
+            text=f'{month + 1} кв м ({cell} р)',
+            callback_data=f'{month + 1, cell}w') for month, cell in enumerate(range(599, 1949 + 1, 150))
+    ]
     keyboard.add(*buttons)
     await bot.delete_message(call.from_user.id, call.message.message_id)
     await call.message.answer("Выберите размер ячейки.\nЦена указана за один месяц:", reply_markup=keyboard)
@@ -310,7 +298,8 @@ async def send_date(call: types.CallbackQuery):
     user_data['size_cell_price'] = re.sub(r'[()w]', '', call.data).split(',')
     buttons = [
         types.InlineKeyboardButton(
-            text=f"{month} мес ({month * int(user_data['size_cell_price'][1])} р)", callback_data=f"{month, month * int(user_data['size_cell_price'][1])}h") for month in range(1, 13)
+            text=f"{month} мес ({month * int(user_data['size_cell_price'][1])} р)",
+            callback_data=f"{month, month * int(user_data['size_cell_price'][1])}h") for month in range(1, 13)
     ]
     keyboard = types.InlineKeyboardMarkup(row_width=2, resize_keyboard=True)
     keyboard.add(*buttons)
@@ -325,23 +314,15 @@ async def choice_month(call: types.CallbackQuery):
     user_data['total_price'] = user_data['rent'][1]
     keyboard_reg = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True, one_time_keyboard=True)
 
-
     period_days = int(user_data['rent'][0]) * 30.5
     user_data['period_days'] = period_days
     user_data['total_price'] = user_data['total_price']
-    user_data['quantity'] = user_data['size_cell_price'][0]
+    user_data['quantity'] = f"Склад объемом {user_data['size_cell_price'][0]} кв м"
     user_data['item'] = 'другое'
-
-    # buttons = [
-    #     types.InlineKeyboardButton(
-    #         text="Забронировать", callback_data='Забронировать')
-    # ]
     keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
     keyboard.add(KeyboardButton(text="телефон мамин у меня нет промокода"))
 
     await call.message.answer("Введите промокод:", reply_markup=keyboard)
-
-
     await call.answer()
 
 
@@ -380,9 +361,8 @@ async def promocod(message: types.Message):
         ), reply_markup=keyboard)
 
 
-@ dp.callback_query_handler(text='Забронировать')
+@dp.callback_query_handler(text='Забронировать')
 async def registration(call: types.CallbackQuery):
-    # await bot.delete_message(call.from_user.id, call.message.message_id)
     user = call.message["chat"]["first_name"]
     user_id = str(call.from_user.id)
     try:
@@ -395,7 +375,7 @@ async def registration(call: types.CallbackQuery):
             key_9 = types.KeyboardButton(text='Отмена')
             keyboard_ok.add(key_8).add(key_9)
             await call.message.answer(f' {user}, вы уже у нас зарегистрированы, рады видеть вас снова! '
-                     ' Для оплаты нажмите кнопку ниже:', reply_markup=keyboard_ok)
+                                      ' Для оплаты нажмите кнопку ниже:', reply_markup=keyboard_ok)
             await call.answer()
         else:
             keyboard = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True, one_time_keyboard=True)
@@ -410,15 +390,10 @@ async def registration(call: types.CallbackQuery):
         keyboard = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True, one_time_keyboard=True)
         buttons = [
             "Регистрация",
-             "Отмена",
+            "Отмена",
         ]
         keyboard.add(*buttons)
         await call.message.answer(f' {user}, вы у нас впервые? Давайте зарегистрируемся.', reply_markup=keyboard)
-
-
-# @dp.message_handler(lambda message: message.text == "Отмена")
-# async def cancel(message: types.Message):
-#     await message.answer('Мне жаль, что вы уходите, но если передумаете - нажмите /start')
 
 
 @dp.message_handler(text="Регистрация")
@@ -439,7 +414,7 @@ async def logging(message: types.Message):
     )
 
 
-@ dp.message_handler(text='Оплатить')
+@dp.message_handler(text='Оплатить')
 async def pay(message: types.Message):
     PRICE = types.LabeledPrice(label='Склад', amount=30000)
     # PRICE = types.LabeledPrice(label='Склад', amount=user_data['total_price'])
@@ -524,11 +499,7 @@ async def send_qrcode(call: types.CallbackQuery):
     keyboard = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True, one_time_keyboard=True)
     keyboard.add(KeyboardButton(text="В начало")).add(KeyboardButton(text="Посмотреть заказы"))
     await bot.delete_message(call.from_user.id, call.message.message_id)
-    # await call.answer('Спасибо за заказ! Если хотите сделать еще один - нажмите "В начало" 😉 ', show_alert=True)
     await bot.send_message(call.from_user.id, 'Еще заказ?', reply_markup=keyboard)
-
-
-
 
 
 @dp.message_handler(text='Посмотреть заказы')
@@ -536,7 +507,6 @@ async def show_orders(message: types.Message):
     user_id = str(message.chat.id)
     with open('orders.json') as f:
         data = json.load(f)
-
     await message.answer('Ваши заказы:')
     user_data = data[user_id]
     for i, order in enumerate(user_data, start=1):
@@ -545,12 +515,10 @@ async def show_orders(message: types.Message):
         item = order['item']
         period_days = order['period_days']
         total_price = order['total_price']
-        await message.answer( f'Заказ № {i}: {adress}, {item}, {quantity}, {period_days}, сумма-{total_price} руб.')
-
+        await message.answer(
+            f'Заказ № {i}\nАдрес: {adress}\nРаздел: {item}\n{quantity}\nСрок: {period_days}\nСумма - {total_price} руб.')
     keyboard = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True, one_time_keyboard=True)
     keyboard.add(KeyboardButton(text="В начало")).add(KeyboardButton(text="Посмотреть заказы"))
-    await message.answer('Еще заказ?', reply_markup=keyboard)
-
 
 
 @dp.message_handler(state=None)
@@ -639,7 +607,6 @@ async def born(message: types.Message, state: FSMContext):
             async with state.proxy() as data:
                 data["born"] = message.text
                 data["id"] = message.from_user.id
-                #user_data['logging'] = str(data)
             with open('clients.json', 'w') as file:
                 json.dump(data, file, ensure_ascii=False, default=str)
             keyboard_ok = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
@@ -654,6 +621,4 @@ async def born(message: types.Message, state: FSMContext):
 
 
 if __name__ == '__main__':
-   executor.start_polling(dp, skip_updates=True)
-
-
+    executor.start_polling(dp, skip_updates=True)
