@@ -11,6 +11,7 @@ from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters.state import State, StatesGroup
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.types.message import ContentType
+from aiogram.utils.exceptions import TelegramAPIError
 from dotenv import load_dotenv
 import aiogram.utils.markdown as fmt
 
@@ -28,6 +29,13 @@ user_data = {}
 bot = Bot(token=token, parse_mode=types.ParseMode.HTML)
 storage = MemoryStorage()
 dp = Dispatcher(bot, storage=storage, loop=loop)
+
+logging.basicConfig(
+    level=logging.WARNING,
+    filename='logs.log',
+    filemode='w',
+    format='%(asctime)s - [%(levelname)s] - %(funcName)s() - [line %(lineno)d] - %(message)s',
+)
 
 
 class FsmAdmin(StatesGroup):
@@ -339,20 +347,36 @@ async def promocod(message: types.Message):
         if 6 <= int(user_data['rent'][0]):
             discont = float(user_data['total_price']) * 0.2
             user_data['total_price'] = float(user_data['total_price']) - float(user_data['total_price']) * 0.2
+            await bot.send_message(
+                message.from_user.id, f"Промокод: {message.text}",
+                reply_markup=types.ReplyKeyboardRemove())
         else:
-            await bot.send_message(message.from_user.id, "Промокод не подходит к выбранному сроку",
-                                   reply_markup=types.ReplyKeyboardRemove())
+            await bot.send_message(message.from_user.id,
+                                   "Промокод не подходит к выбранному сроку",
+                                   reply_markup=types.ReplyKeyboardRemove(),
+                                   )
+
     elif message.text == "storage15":
         if 1 < int(user_data['rent'][0]) < 6:
             discont = float(user_data['total_price']) * 0.15
             user_data['total_price'] = float(user_data['total_price']) - float(user_data['total_price']) * 0.15
+            await bot.send_message(
+                message.from_user.id, f"Промокод: {message.text}",
+                reply_markup=types.ReplyKeyboardRemove(),
+            )
         else:
-            await bot.send_message(message.from_user.id, "Промокод не подходит к выбранному сроку",
-                                   reply_markup=types.ReplyKeyboardRemove())
+            await bot.send_message(message.from_user.id,
+                                   "Промокод не подходит к выбранному сроку",
+                                   reply_markup=types.ReplyKeyboardRemove(),
+                                   )
+
     elif message.text == "это мамин смартфон у меня нет промокода" or message.text == "Продолжить без промокода":
         discont = 0
         user_data['total_price'] = user_data['total_price']
-        await bot.send_message(message.from_user.id, f"Без промокода: ", reply_markup=types.ReplyKeyboardRemove())
+        await bot.send_message(
+            message.from_user.id, f"Без промокода: ",
+            reply_markup=types.ReplyKeyboardRemove(),
+        )
 
     buttons = [
         types.InlineKeyboardButton(
@@ -372,8 +396,8 @@ async def promocod(message: types.Message):
                 fmt.text(f"\nСкидка:   {int(discont)} рублей"),
                 fmt.text(f"\nСтоимость итого:   {int(user_data['total_price'])} рублей"), sep="\n",
             ), reply_markup=keyboard)
-    except:
-        pass
+    except (TypeError, TelegramAPIError) as exc:
+        logging.warning(exc)
 
 
 @dp.callback_query_handler(text='Забронировать')
@@ -399,8 +423,7 @@ async def registration(call: types.CallbackQuery):
             ]
             keyboard.add(*buttons)
             await call.message.answer(f' {user}, вы у нас впервые? Давайте зарегистрируемся.', reply_markup=keyboard)
-
-    except:
+    except (TypeError, TelegramAPIError) as exc:
         keyboard = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True, one_time_keyboard=True)
         buttons = [
             "Регистрация",
@@ -408,6 +431,7 @@ async def registration(call: types.CallbackQuery):
         ]
         keyboard.add(*buttons)
         await call.message.answer(f' {user}, вы у нас впервые? Давайте зарегистрируемся.', reply_markup=keyboard)
+        logging.warning(exc)
 
 
 @dp.message_handler(text="Регистрация")
@@ -498,12 +522,14 @@ async def send_qrcode(call: types.CallbackQuery):
             order[call.message.chat.id].append(user_data)
             with open('orders.json', 'w') as file:
                 json.dump(order, file, ensure_ascii=False, default=str)
-    except:
+    except (TypeError, TelegramAPIError) as exc:
+        logging.warning(exc)
         order = {}
         order[call.message.chat.id] = []
         order[call.message.chat.id].append(user_data)
         with open('orders.json', 'w') as file:
             json.dump(order, file, ensure_ascii=False, default=str)
+        logging.warning(exc)
 
     await call.message.answer('Заказ создан и успешно оплачен!'
                               ' Вот ваш электронный ключ для доступа к вашему личному складу. '
@@ -568,7 +594,8 @@ async def last_name(message: types.Message, state: FSMContext):
     name = re.findall(r"\b[А-Яа-я]{1,15}\b", message.text, flags=re.I)
     if not name:
         await bot.send_message(message.from_user.id,
-                               'Используйте кирилицу, либо превышено количество символов (не более 15)')
+                               'Используйте кирилицу, либо превышено количество символов (не более 15)',
+                               )
     else:
         async with state.proxy() as data:
             data["last_name"] = message.text
@@ -614,8 +641,9 @@ async def born(message: types.Message, state: FSMContext):
     else:
         try:
             year = datetime.datetime.today() - datetime.datetime.strptime(message.text, '%d.%m.%Y')
-        except:
+        except (TypeError, TelegramAPIError) as exc:
             await message.answer('Введите корректную дату в формате: ХХ.ХХ.ХХХХ')
+            logging.warning(exc)
         year_old = year.days // 365
         if 14 < year_old < 100:
             async with state.proxy() as data:
