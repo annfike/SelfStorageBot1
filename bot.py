@@ -24,7 +24,7 @@ import pyqrcode
 from geopy.distance import geodesic as GD
 
 loop = asyncio.get_event_loop()
-PAYMENTS_PROVIDER_TOKEN = '381764678:TEST:31252'
+PAYMENTS_PROVIDER_TOKEN = os.getenv("PAY_TOKEN")
 logging.basicConfig(level=logging.INFO)
 load_dotenv()
 token = os.getenv("BOT_KEY")
@@ -32,7 +32,7 @@ user_data = {}
 bot = Bot(token=token, parse_mode=types.ParseMode.HTML)
 storage = MemoryStorage()
 dp = Dispatcher(bot, storage=storage, loop=loop)
-PRICE = types.LabeledPrice(label='Склад', amount=30000)
+
 
 
 class FsmAdmin(StatesGroup):
@@ -292,7 +292,8 @@ async def send_msg_other(call: types.CallbackQuery):
     keyboard = types.InlineKeyboardMarkup(row_width=3, resize_keyboard=True)
     buttons = [
             types.InlineKeyboardButton(
-                text=f'{month+1} кв м  ({cell} р)', callback_data=f'{month+1, cell}w') for month, cell in enumerate(range(599, 1949+1, 150))
+                text=f'{month+1} кв м  ({cell} р)',
+                callback_data=f'{month+1, cell}w') for month, cell in enumerate(range(599, 1949+1, 150))
         ]
     keyboard.add(*buttons)
     await bot.delete_message(call.from_user.id, call.message.message_id)
@@ -305,7 +306,8 @@ async def send_date(call: types.CallbackQuery):
     user_data['size_cell_price'] = re.sub(r'[()w]', '', call.data).split(',')
     buttons = [
         types.InlineKeyboardButton(
-            text=f"{month} мес {month * int(user_data['size_cell_price'][1])} р", callback_data=f"{month, month * int(user_data['size_cell_price'][1])}h") for month in range(1, 13)
+            text=f"{month} мес {month * int(user_data['size_cell_price'][1])} р",
+            callback_data=f"{month, month * int(user_data['size_cell_price'][1])}h") for month in range(1, 13)
     ]
     keyboard = types.InlineKeyboardMarkup(row_width=3, resize_keyboard=True)
     keyboard.add(*buttons)
@@ -407,6 +409,9 @@ async def logging(message: types.Message):
 
 @dp.message_handler(text='Оплатить')
 async def pay(message: types.Message):
+
+    PRICE = types.LabeledPrice(label='Склад', amount=30000)
+    # PRICE = types.LabeledPrice(label='Склад', amount=user_data['total_price'])
     await bot.send_message(message.from_user.id, message.text)
     if PAYMENTS_PROVIDER_TOKEN.split(':')[1] == 'TEST':
         await bot.send_message(message.from_user.id, 'Склад в Москве-1')
