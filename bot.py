@@ -27,6 +27,9 @@ load_dotenv()
 loop = asyncio.get_event_loop()
 pay_token = os.getenv("PAY_TOKEN")
 
+
+
+
 logging.basicConfig(level=logging.INFO)
 
 token = os.getenv("BOT_KEY")
@@ -63,9 +66,7 @@ async def cmd_start(message: types.Message):
                              "Пришлите мне, пожалуйста свою геолокацию или выберете из списка,"
                              " чтобы вы выбрали ближайший склад!",
                              reply_markup=keyboard)
-    # await bot.delete_message(message.from_user.id, message.message_id)
-    # await bot.send_message(message.from_user.id, f"{PAYMENTS_PROVIDER_TOKEN}", message.message_id)
-
+    await bot.delete_message(message.from_user.id, message.message_id)
 
 
 @dp.message_handler(text='Выбрать руками 🤦')
@@ -292,7 +293,7 @@ async def seasonal_book(call: types.CallbackQuery):
 
 @dp.callback_query_handler(text='другое')
 async def send_msg_other(call: types.CallbackQuery):
-    keyboard = types.InlineKeyboardMarkup(row_width=3, resize_keyboard=True)
+    keyboard = types.InlineKeyboardMarkup(row_width=2, resize_keyboard=True)
     buttons = [
             types.InlineKeyboardButton(
                 text=f'{month+1} кв м  ({cell} р)',
@@ -309,10 +310,9 @@ async def send_date(call: types.CallbackQuery):
     user_data['size_cell_price'] = re.sub(r'[()w]', '', call.data).split(',')
     buttons = [
         types.InlineKeyboardButton(
-            text=f"{month} мес {month * int(user_data['size_cell_price'][1])} р",
-            callback_data=f"{month, month * int(user_data['size_cell_price'][1])}h") for month in range(1, 13)
+            text=f"{month} мес ({month * int(user_data['size_cell_price'][1])} р)", callback_data=f"{month, month * int(user_data['size_cell_price'][1])}h") for month in range(1, 13)
     ]
-    keyboard = types.InlineKeyboardMarkup(row_width=3, resize_keyboard=True)
+    keyboard = types.InlineKeyboardMarkup(row_width=2, resize_keyboard=True)
     keyboard.add(*buttons)
     await bot.delete_message(call.from_user.id, call.message.message_id)
     await call.message.answer("Выберите срок аренды:", reply_markup=keyboard)
@@ -389,14 +389,13 @@ async def registration(call: types.CallbackQuery):
         with open('clients.json') as f:
             data = json.load(f)
         if user_id in data:
-            buttons = [
-            types.InlineKeyboardButton(
-                text="Оплатить", callback_data='Оплатить')
-            ]
-            keyboard = types.InlineKeyboardMarkup(resize_keyboard=True)
-            keyboard.add(*buttons)
+
+            keyboard_ok = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+            key_8 = types.KeyboardButton(text='Оплатить')
+            key_9 = types.KeyboardButton(text='Отмена')
+            keyboard_ok.add(key_8).add(key_9)
             await call.message.answer(f' {user}, вы уже у нас зарегистрированы, рады видеть вас снова! '
-                    ' Для оплаты нажмите кнопку ниже:', reply_markup=keyboard)
+                     ' Для оплаты нажмите кнопку ниже:', reply_markup=keyboard_ok)
             await call.answer()
         else:
             keyboard = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True, one_time_keyboard=True)
@@ -506,12 +505,14 @@ async def send_qrcode(call: types.CallbackQuery):
                 json.dump(data, f, ensure_ascii=False, default=str)
         else:
             order = {}
-            order[call.message.chat.id] = user_data
+            order[call.message.chat.id] = []
+            order[call.message.chat.id].append(user_data)
             with open('orders.json', 'w') as file:
                 json.dump(order, file, ensure_ascii=False, default=str)
     except:
         order = {}
-        order[call.message.chat.id] = user_data
+        order[call.message.chat.id] = []
+        order[call.message.chat.id].append(user_data)
         with open('orders.json', 'w') as file:
             json.dump(order, file, ensure_ascii=False, default=str)
 
@@ -521,10 +522,35 @@ async def send_qrcode(call: types.CallbackQuery):
     photo = open(filepath, 'rb')
     await bot.send_photo(chat_id=call.message.chat.id, photo=photo)
     keyboard = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True, one_time_keyboard=True)
-    keyboard.add(KeyboardButton(text="В начало"))
+    keyboard.add(KeyboardButton(text="В начало")).add(KeyboardButton(text="Посмотреть заказы"))
     await bot.delete_message(call.from_user.id, call.message.message_id)
-    await call.answer('Спасибо за заказ! Если хотите сделать еще один - нажмите "В начало" 😉 ', show_alert=True)
+    # await call.answer('Спасибо за заказ! Если хотите сделать еще один - нажмите "В начало" 😉 ', show_alert=True)
     await bot.send_message(call.from_user.id, 'Еще заказ?', reply_markup=keyboard)
+
+
+
+
+
+@dp.message_handler(text='Посмотреть заказы')
+async def show_orders(message: types.Message):
+    user_id = str(message.chat.id)
+    with open('orders.json') as f:
+        data = json.load(f)
+
+    await message.answer('Ваши заказы:')
+    user_data = data[user_id]
+    for i, order in enumerate(user_data, start=1):
+        adress = order['adress']
+        quantity = order['quantity']
+        item = order['item']
+        period_days = order['period_days']
+        total_price = order['total_price']
+        await message.answer( f'Заказ № {i}: {adress}, {item}, {quantity}, {period_days}, сумма-{total_price} руб.')
+
+    keyboard = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True, one_time_keyboard=True)
+    keyboard.add(KeyboardButton(text="В начало")).add(KeyboardButton(text="Посмотреть заказы"))
+    await message.answer('Еще заказ?', reply_markup=keyboard)
+
 
 
 @dp.message_handler(state=None)
@@ -592,6 +618,7 @@ async def passport(message: types.Message, state: FSMContext):
     else:
         async with state.proxy() as data:
             data["passport"] = message.text
+            data["id"] = message.from_user.id
         await FsmAdmin.next()
         await message.answer('Укажите дату рождения в формате: ХХ.ХХ.ХХХХ')
 
@@ -611,10 +638,14 @@ async def born(message: types.Message, state: FSMContext):
         if 14 < year_old < 100:
             async with state.proxy() as data:
                 data["born"] = message.text
-                user_data['logging'] = str(data)
+                data["id"] = message.from_user.id
+                #user_data['logging'] = str(data)
+            with open('clients.json', 'w') as file:
+                json.dump(data, file, ensure_ascii=False, default=str)
             keyboard_ok = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
             key_8 = types.KeyboardButton(text='Оплатить')
-            keyboard_ok.add(key_8)
+            key_9 = types.KeyboardButton(text='Отмена')
+            keyboard_ok.add(key_8).add(key_9)
             await bot.send_message(message.from_user.id, 'Готово!', reply_markup=keyboard_ok)
             await state.finish()
         else:
