@@ -45,7 +45,7 @@ class FsmAdmin(StatesGroup):
     passport = State()
     born = State()
 
-@dp.callback_query_handler(text='start')
+
 @dp.message_handler(text='В начало')
 @dp.message_handler(commands='start')
 async def cmd_start(message: types.Message):
@@ -412,22 +412,10 @@ async def logging(message: types.Message):
     )
 
 
-
-
-
-    PRICE = types.LabeledPrice(label='Склад', amount=30000)
-    # PRICE = types.LabeledPrice(label='Склад', amount=user_data['total_price'])
-    await bot.send_message(message.from_user.id, message.text)
-
-    if PAYMENTS_PROVIDER_TOKEN.split(':')[1] == 'TEST':
-        await bot.send_message(message.from_user.id, 'Склад в Москве-1')
-        print(user_data)
-
-@ dp.callback_query_handler(text='Оплатить')
+@dp.message_handler(text='Оплатить')
 async def pay(call: types.CallbackQuery):
     PRICE = types.LabeledPrice(label='Склад', amount=30000)
-    # PRICE = types.LabeledPrice(label='Склад', amount=user_data['total_price'])
-    await bot.send_message(call.from_user.id, call.data)
+    #PRICE = types.LabeledPrice(label='Склад', amount=user_data['total_price'])
     if PAYMENTS_PROVIDER_TOKEN.split(':')[1] == 'TEST':
         await bot.send_message(call.from_user.id, 'Склад в Москве-1')
 
@@ -490,12 +478,14 @@ async def send_qrcode(call: types.CallbackQuery):
                 json.dump(data, f, ensure_ascii=False, default=str)
         else:
             order = {}
-            order[call.message.chat.id] = user_data
+            order[call.message.chat.id] = []
+            order[call.message.chat.id].append(user_data)
             with open('orders.json', 'w') as file:
                 json.dump(order, file, ensure_ascii=False, default=str)
     except:
         order = {}
-        order[call.message.chat.id] = user_data
+        order[call.message.chat.id] = []
+        order[call.message.chat.id].append(user_data)
         with open('orders.json', 'w') as file:
             json.dump(order, file, ensure_ascii=False, default=str)
 
@@ -504,30 +494,35 @@ async def send_qrcode(call: types.CallbackQuery):
                               f'Вы сможете попасть на склад в любое время в период с {storage_date_start} по {storage_date_end}')
     photo = open(filepath, 'rb')
     await bot.send_photo(chat_id=call.message.chat.id, photo=photo)
-    # keyboard = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True, one_time_keyboard=True)
-    # keyboard.add(KeyboardButton(text="В начало"))
-    # await bot.delete_message(call.from_user.id, call.message.message_id)
+    keyboard = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True, one_time_keyboard=True)
+    keyboard.add(KeyboardButton(text="В начало")).add(KeyboardButton(text="Посмотреть заказы"))
+    await bot.delete_message(call.from_user.id, call.message.message_id)
     # await call.answer('Спасибо за заказ! Если хотите сделать еще один - нажмите "В начало" 😉 ', show_alert=True)
-    # await bot.send_message(call.from_user.id, 'Еще заказ?', reply_markup=keyboard)
-    buttons = [
-        types.InlineKeyboardButton(text='Новый заказ', callback_data='start'),
-        types.InlineKeyboardButton(text='Посмотреть заказы', callback_data='story'),
-               ]
-
-    keyboard = types.InlineKeyboardMarkup(row_width=2, resize_keyboard=True)
-    keyboard.add(*buttons)
-    await call.message.answer("Спасибо! Что желаете?", reply_markup=keyboard)
-    await call.answer()
+    await bot.send_message(call.from_user.id, 'Еще заказ?', reply_markup=keyboard)
 
 
-@dp.callback_query_handler(text='story')
-async def send_date(call: types.CallbackQuery):
-    user_id = str(call.message.chat.id)
+
+
+
+@dp.message_handler(text='Посмотреть заказы')
+async def show_orders(message: types.Message):
+    user_id = str(message.chat.id)
     with open('orders.json') as f:
         data = json.load(f)
-    print("Ваши заказы:")
+    
+    await message.answer('Ваши заказы:')
+    user_data = data[user_id]
+    for i, order in enumerate(user_data, start=1):
+        adress = order['adress']
+        quantity = order['quantity']
+        item = order['item']
+        period_days = order['period_days']
+        total_price = order['total_price']
+        await message.answer( f'Заказ № {i}: {adress}, {item}, {quantity}, {period_days}, сумма-{total_price} руб.')
 
-
+    keyboard = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True, one_time_keyboard=True)
+    keyboard.add(KeyboardButton(text="В начало")).add(KeyboardButton(text="Посмотреть заказы"))
+    await message.answer('Еще заказ?', reply_markup=keyboard)
 
 
 
@@ -596,6 +591,7 @@ async def passport(message: types.Message, state: FSMContext):
     else:
         async with state.proxy() as data:
             data["pasport"] = message.text
+            data["id"] = message.from_user.id
         await FsmAdmin.next()
         await message.answer('Укажите дату рождения в формате: ХХ.ХХ.ХХХХ')
 
@@ -615,10 +611,14 @@ async def born(message: types.Message, state: FSMContext):
         if 14 < year_old < 100:
             async with state.proxy() as data:
                 data["born"] = message.text
-                user_data['logging'] = str(data)
+                data["id"] = message.from_user.id
+                #user_data['logging'] = str(data)
+            with open('clients.json', 'w') as file:
+                json.dump(data, file, ensure_ascii=False, default=str)
             keyboard_ok = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
             key_8 = types.KeyboardButton(text='Оплатить')
-            keyboard_ok.add(key_8)
+            key_9 = types.KeyboardButton(text='Отмена')
+            keyboard_ok.add(key_8).add(key_9)
             await bot.send_message(message.from_user.id, 'Готово!', reply_markup=keyboard_ok)
             await state.finish()
         else:
