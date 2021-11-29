@@ -537,8 +537,8 @@ async def send_qrcode(call: types.CallbackQuery):
             json.dump(orders, file, ensure_ascii=False, default=str)
 
     await call.message.answer(
-        'Заказ создан и успешно оплачен! Вот ваш электронный ключ для доступа к вашему личному складу. '
-        'Вы сможете попасть на склад в любое время в период с {storage_date_start} по {storage_date_end}'
+        f'Заказ создан и успешно оплачен! Вот ваш электронный ключ для доступа к вашему личному складу. '
+        f'Вы сможете попасть на склад в любое время в период с f{storage_date_start} по {storage_date_end}'
     )
     photo = open(filepath, 'rb')
     await bot.send_photo(chat_id=call.message.chat.id, photo=photo)
