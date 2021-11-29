@@ -414,7 +414,8 @@ async def registration(call: types.CallbackQuery):
                 key_10 = types.KeyboardButton(text='Отмена')
                 keyboard_ok.add(key_8).add(key_9).add(key_10)
                 await call.message.answer(f' {user}, вы уже у нас зарегистрированы, рады видеть вас снова! '
-                                        'Вы можете поменять ваши регистрационные данные или сразу перейти к оплате', reply_markup=keyboard_ok)
+                                          'Вы можете поменять ваши регистрационные данные или сразу перейти к оплате',
+                                          reply_markup=keyboard_ok)
                 await call.answer()
             else:
                 keyboard = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True, one_time_keyboard=True)
@@ -423,7 +424,8 @@ async def registration(call: types.CallbackQuery):
                     "Отмена",
                 ]
                 keyboard.add(*buttons)
-                await call.message.answer(f' {user}, вы у нас впервые? Давайте зарегистрируемся.', reply_markup=keyboard)
+                await call.message.answer(f' {user}, вы у нас впервые? Давайте зарегистрируемся.',
+                                          reply_markup=keyboard)
     except:
         keyboard = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True, one_time_keyboard=True)
         buttons = [
@@ -432,7 +434,6 @@ async def registration(call: types.CallbackQuery):
         ]
         keyboard.add(*buttons)
         await call.message.answer(f' {user}, вы у нас впервые? Давайте зарегистрируемся.', reply_markup=keyboard)
-
 
 
 @dp.message_handler(text="Регистрация")
@@ -458,7 +459,6 @@ async def logging(message: types.Message):
 async def pay(message: types.Message):
     PRICE = types.LabeledPrice(label='Склад', amount=30000)
     # PRICE = types.LabeledPrice(label='Склад', amount=user_data['total_price'])
-    #await bot.send_message(message.from_user.id, message.text)
     if pay_token.split(':')[1] == 'TEST':
         await bot.send_message(message.from_user.id, 'Склад в Москве-1')
         await bot.send_invoice(
@@ -536,10 +536,10 @@ async def send_qrcode(call: types.CallbackQuery):
         with open('orders.json', 'w') as file:
             json.dump(orders, file, ensure_ascii=False, default=str)
 
-
-    await call.message.answer('Заказ создан и успешно оплачен!'
-                              ' Вот ваш электронный ключ для доступа к вашему личному складу. '
-                              f'Вы сможете попасть на склад в любое время в период с {storage_date_start} по {storage_date_end}')
+    await call.message.answer(
+        'Заказ создан и успешно оплачен! Вот ваш электронный ключ для доступа к вашему личному складу. '
+        'Вы сможете попасть на склад в любое время в период с {storage_date_start} по {storage_date_end}'
+    )
     photo = open(filepath, 'rb')
     await bot.send_photo(chat_id=call.message.chat.id, photo=photo)
     keyboard = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True, one_time_keyboard=True)
