@@ -56,12 +56,12 @@ async def cmd_start(message: types.Message):
 
     if message.text == 'В начало':
         await message.answer("Рады видеть Вас снова! Начнем! \n"
-                             "Пришлите мне, пожалуйста, повторно свою геолокацию, или выберете из списка! "
-                             "И мы снова предложем ближайший склад",
+                             "Пришлите мне, пожалуйста, повторно свою геолокацию, или выберите из списка! "
+                             "И мы снова предложим ближайший склад",
                              reply_markup=keyboard)
     else:
         await message.answer("Привет! 🖐\n\n Я помогу вам арендовать личную ячейку для хранения вещей.\n"
-                             "Пришлите мне, пожалуйста свою геолокацию или выберете из списка,"
+                             "Пришлите мне, пожалуйста свою геолокацию или выберите из списка,"
                              " чтобы вы выбрали ближайший склад!",
                              reply_markup=keyboard)
     await bot.delete_message(message.from_user.id, message.message_id)
@@ -407,23 +407,24 @@ async def registration(call: types.CallbackQuery):
     try:
         with open('clients.json') as f:
             data = json.load(f)
-        if user_id in data:
-            keyboard_ok = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
-            key_8 = types.KeyboardButton(text='Оплатить')
-            key_9 = types.KeyboardButton(text='Отмена')
-            keyboard_ok.add(key_8).add(key_9)
-            await call.message.answer(f' {user}, вы уже у нас зарегистрированы, рады видеть вас снова! '
-                                      ' Для оплаты нажмите кнопку ниже:', reply_markup=keyboard_ok)
-            await call.answer()
-        else:
-            keyboard = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True, one_time_keyboard=True)
-            buttons = [
-                "Регистрация",
-                "Отмена",
-            ]
-            keyboard.add(*buttons)
-            await call.message.answer(f' {user}, вы у нас впервые? Давайте зарегистрируемся.', reply_markup=keyboard)
-    except (TypeError, TelegramAPIError) as exc:
+            if any([user_id in _ for _ in data]):
+                keyboard_ok = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+                key_8 = types.KeyboardButton(text='Оплатить')
+                key_9 = types.KeyboardButton(text='Изменить данные')
+                key_10 = types.KeyboardButton(text='Отмена')
+                keyboard_ok.add(key_8).add(key_9).add(key_10)
+                await call.message.answer(f' {user}, вы уже у нас зарегистрированы, рады видеть вас снова! '
+                                        'Вы можете поменять ваши регистрационные данные или сразу перейти к оплате', reply_markup=keyboard_ok)
+                await call.answer()
+            else:
+                keyboard = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True, one_time_keyboard=True)
+                buttons = [
+                    "Регистрация",
+                    "Отмена",
+                ]
+                keyboard.add(*buttons)
+                await call.message.answer(f' {user}, вы у нас впервые? Давайте зарегистрируемся.', reply_markup=keyboard)
+    except:
         keyboard = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True, one_time_keyboard=True)
         buttons = [
             "Регистрация",
@@ -431,10 +432,11 @@ async def registration(call: types.CallbackQuery):
         ]
         keyboard.add(*buttons)
         await call.message.answer(f' {user}, вы у нас впервые? Давайте зарегистрируемся.', reply_markup=keyboard)
-        logging.warning(exc)
+
 
 
 @dp.message_handler(text="Регистрация")
+@dp.message_handler(text="Изменить данные")
 async def logging(message: types.Message):
     user_id = message.from_user.id
     keyboard = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True, one_time_keyboard=True)
@@ -456,7 +458,7 @@ async def logging(message: types.Message):
 async def pay(message: types.Message):
     PRICE = types.LabeledPrice(label='Склад', amount=30000)
     # PRICE = types.LabeledPrice(label='Склад', amount=user_data['total_price'])
-    await bot.send_message(message.from_user.id, message.text)
+    #await bot.send_message(message.from_user.id, message.text)
     if pay_token.split(':')[1] == 'TEST':
         await bot.send_message(message.from_user.id, 'Склад в Москве-1')
         await bot.send_invoice(
@@ -512,24 +514,28 @@ async def send_qrcode(call: types.CallbackQuery):
     try:
         with open('orders.json') as f:
             data = json.load(f)
-        if user_id in data:
-            data[user_id].append(user_data)
-            with open('orders.json', 'w') as f:
-                json.dump(data, f, ensure_ascii=False, default=str)
-        else:
-            order = {}
-            order[call.message.chat.id] = []
-            order[call.message.chat.id].append(user_data)
-            with open('orders.json', 'w') as file:
-                json.dump(order, file, ensure_ascii=False, default=str)
-    except (TypeError, TelegramAPIError) as exc:
-        logging.warning(exc)
+        for client in data:
+            if user_id in client:
+                client[user_id].append(user_data)
+                with open('orders.json', 'w') as f:
+                    json.dump(data, f, ensure_ascii=False, default=str)
+            else:
+                orders = []
+                order = {}
+                order[call.message.chat.id] = []
+                order[call.message.chat.id].append(user_data)
+                orders.append(order)
+                with open('orders.json', 'w') as file:
+                    json.dump(orders, file, ensure_ascii=False, default=str)
+    except:
+        orders = []
         order = {}
         order[call.message.chat.id] = []
         order[call.message.chat.id].append(user_data)
+        orders.append(order)
         with open('orders.json', 'w') as file:
-            json.dump(order, file, ensure_ascii=False, default=str)
-        logging.warning(exc)
+            json.dump(orders, file, ensure_ascii=False, default=str)
+
 
     await call.message.answer('Заказ создан и успешно оплачен!'
                               ' Вот ваш электронный ключ для доступа к вашему личному складу. '
@@ -548,17 +554,21 @@ async def show_orders(message: types.Message):
     with open('orders.json') as f:
         data = json.load(f)
     await message.answer('Ваши заказы:')
-    user_data = data[user_id]
-    for i, order in enumerate(user_data, start=1):
-        adress = order['adress']
-        quantity = order['quantity']
-        item = order['item']
-        period_days = order['period_days']
-        total_price = order['total_price']
-        await message.answer(
-            f'Заказ № {i}\nАдрес: {adress}\nРаздел: {item}\n{quantity}\nСрок: {period_days}\nСумма - {total_price} руб.')
+    for client in data:
+        if user_id in client:
+            user_data = client[user_id]
+            for i, order in enumerate(user_data, start=1):
+                adress = order['adress']
+                quantity = order['quantity']
+                item = order['item']
+                period_days = order['period_days']
+                total_price = order['total_price']
+                await message.answer(
+                    f'Заказ № {i}\nАдрес: {adress}\nРаздел: {item}\n{quantity}\nСрок: {period_days}\nСумма - {total_price} руб.')
     keyboard = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True, one_time_keyboard=True)
     keyboard.add(KeyboardButton(text="В начало")).add(KeyboardButton(text="Посмотреть заказы"))
+    await bot.delete_message(message.from_user.id, message.message_id)
+    await bot.send_message(message.from_user.id, 'Еще заказ?', reply_markup=keyboard)
 
 
 @dp.message_handler(state=None)
@@ -604,7 +614,7 @@ async def last_name(message: types.Message, state: FSMContext):
         key_1 = types.KeyboardButton(text='Поделиться контактом', request_contact=True)
         keyboard_contact.add(key_1)
         await FsmAdmin.next()
-        await bot.send_message(message.from_user.id, 'Укажите номер телефона')
+        await bot.send_message(message.from_user.id, 'Укажите номер телефона в формате: 9ХХХХХХХХХ')
         # await bot.send_message(message.from_user.id, 'Укажите номер телефона', reply_markup=keyboard_contact)
 
 
@@ -650,8 +660,18 @@ async def born(message: types.Message, state: FSMContext):
             async with state.proxy() as data:
                 data["born"] = message.text
                 data["id"] = message.from_user.id
-            with open('clients.json', 'w') as file:
-                json.dump(data, file, ensure_ascii=False, default=str)
+            try:
+                with open('clients.json') as f:
+                    file_data = json.load(f)
+                    file_data.append(data)
+                with open('clients.json', 'w') as file:
+                    json.dump(file_data, file, ensure_ascii=False, default=str)
+            except:
+                clients = []
+                clients.append(data)
+                with open('clients.json', 'w') as file:
+                    json.dump(clients, file, ensure_ascii=False, default=str)
+
             keyboard_ok = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
             key_8 = types.KeyboardButton(text='Оплатить')
             key_9 = types.KeyboardButton(text='Отмена')
