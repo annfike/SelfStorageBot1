@@ -537,8 +537,8 @@ async def send_qrcode(call: types.CallbackQuery):
             json.dump(orders, file, ensure_ascii=False, default=str)
 
     await call.message.answer(
-        f'Заказ создан и успешно оплачен! Вот ваш электронный ключ для доступа к вашему личному складу. '
-        f'Вы сможете попасть на склад в любое время в период с f{storage_date_start} по {storage_date_end}'
+        f'Заказ создан и успешно оплачен!\n Вот ваш электронный ключ для доступа к вашему личному складу.\n'
+        f'Вы сможете попасть на склад в любое время в период:\n с {storage_date_start} по {storage_date_end}'
     )
     photo = open(filepath, 'rb')
     await bot.send_photo(chat_id=call.message.chat.id, photo=photo)
@@ -614,7 +614,7 @@ async def last_name(message: types.Message, state: FSMContext):
         key_1 = types.KeyboardButton(text='Поделиться контактом', request_contact=True)
         keyboard_contact.add(key_1)
         await FsmAdmin.next()
-        await bot.send_message(message.from_user.id, 'Укажите номер телефона в формате: 9ХХХХХХХХХ')
+        await bot.send_message(message.from_user.id, 'Укажите номер телефона в формате: XХХХХХХХХХ')
         # await bot.send_message(message.from_user.id, 'Укажите номер телефона', reply_markup=keyboard_contact)
 
 
