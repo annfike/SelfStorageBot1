@@ -650,11 +650,8 @@ async def born(message: types.Message, state: FSMContext):
     if not born:
         await message.answer('Используйте только цифры в формате: ХХ.ХХ.ХХХХ')
     else:
-        try:
-            year = datetime.datetime.today() - datetime.datetime.strptime(message.text, '%d.%m.%Y')
-        except (TypeError, TelegramAPIError) as exc:
-            await message.answer('Введите корректную дату в формате: ХХ.ХХ.ХХХХ')
-            logging.warning(exc)
+        year = datetime.datetime.today() - datetime.datetime.strptime(message.text, '%d.%m.%Y')
+        await message.answer('Введите корректную дату в формате: ХХ.ХХ.ХХХХ')
         year_old = year.days // 365
         if 14 < year_old < 100:
             async with state.proxy() as data:
